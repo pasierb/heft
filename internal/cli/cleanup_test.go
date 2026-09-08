@@ -3,6 +3,7 @@ package cli
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -65,6 +66,45 @@ func TestCleanupRequiresOneValidBranch(t *testing.T) {
 	t.Chdir(repo)
 	if _, _, err := execute(t, "cleanup", "../escape"); err == nil || err.Error() != `invalid branch "../escape"` {
 		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestPruneRemovesCleanWorktreesAndSkipsDirtyOnes(t *testing.T) {
+	repo, clean := cleanupRepo(t, "clean")
+	dirty := worktreePath(repo, "trees", "dirty")
+	later := worktreePath(repo, "trees", "later")
+	gitRun(t, repo, "worktree", "add", "-q", "-b", "dirty", dirty)
+	gitRun(t, repo, "worktree", "add", "-q", "-b", "later", later)
+	if err := os.WriteFile(filepath.Join(dirty, "changed"), []byte("dirty\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	_, stderr, err := execute(t, "prune")
+	if err != nil {
+		t.Fatalf("execute prune command: %v", err)
+	}
+	for _, path := range []string{clean, later} {
+		if _, err := os.Stat(path); !os.IsNotExist(err) {
+			t.Fatalf("clean worktree should not exist: %s: %v", path, err)
+		}
+	}
+	if _, err := os.Stat(dirty); err != nil {
+		t.Fatalf("dirty worktree should remain: %v", err)
+	}
+	if !strings.Contains(stderr, "skip "+dirty+": worktree has uncommitted changes") {
+		t.Fatalf("unexpected stderr: %q", stderr)
+	}
+	if _, err := os.Stat(repo); err != nil {
+		t.Fatalf("primary worktree should remain: %v", err)
+	}
+	for _, branch := range []string{"clean", "dirty", "later"} {
+		gitRun(t, repo, "show-ref", "--verify", "refs/heads/"+branch)
+	}
+}
+
+func TestPruneRejectsArguments(t *testing.T) {
+	if _, _, err := execute(t, "prune", "feature"); err == nil {
+		t.Fatal("expected argument error")
 	}
 }
 
