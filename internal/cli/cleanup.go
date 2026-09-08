@@ -2,6 +2,7 @@ package cli
 
 import (
 	"bytes"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os/exec"
@@ -80,10 +81,41 @@ func removeWorktree(cmd *cobra.Command, root, path string) error {
 	if err := checkUncommittedChanges(cmd, path); err != nil {
 		return err
 	}
+	workspaceID, err := herdrWorkspaceForWorktree(cmd, root, path)
+	if err != nil {
+		return err
+	}
+	if workspaceID != "" {
+		return runHerdr(cmd, nil, "remove herdr worktree", "worktree", "remove", "--workspace", workspaceID)
+	}
 	if err := runGit(cmd, root, "worktree", "remove", path); err != nil {
 		return fmt.Errorf("remove worktree: %w", err)
 	}
 	return nil
+}
+
+func herdrWorkspaceForWorktree(cmd *cobra.Command, root, path string) (string, error) {
+	var out bytes.Buffer
+	if err := runHerdr(cmd, &out, "list herdr worktrees", "worktree", "list", "--cwd", root); err != nil {
+		return "", err
+	}
+	var listed struct {
+		Result struct {
+			Worktrees []struct {
+				Path            string `json:"path"`
+				OpenWorkspaceID string `json:"open_workspace_id"`
+			} `json:"worktrees"`
+		} `json:"result"`
+	}
+	if err := json.Unmarshal(out.Bytes(), &listed); err != nil {
+		return "", fmt.Errorf("list herdr worktrees: decode response: %w", err)
+	}
+	for _, worktree := range listed.Result.Worktrees {
+		if worktree.Path == path {
+			return worktree.OpenWorkspaceID, nil
+		}
+	}
+	return "", nil
 }
 
 func checkUncommittedChanges(cmd *cobra.Command, path string) error {

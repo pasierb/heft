@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -17,6 +18,43 @@ func TestCleanupRemovesCleanWorktreeAndPreservesBranch(t *testing.T) {
 		t.Fatalf("worktree should not exist: %v", err)
 	}
 	gitRun(t, repo, "show-ref", "--verify", "refs/heads/feature/abc")
+}
+
+func TestCleanupClosesHerdrWorkspace(t *testing.T) {
+	repo, worktree := cleanupRepo(t, "feature")
+	herdrLog := filepath.Join(t.TempDir(), "herdr.log")
+	t.Setenv("HERDR_TEST_LOG", herdrLog)
+	t.Setenv("HERDR_TEST_WORKTREES", fmt.Sprintf(`{"result":{"worktrees":[{"path":%q,"open_workspace_id":"w1"}]}}`, worktree))
+
+	if _, _, err := execute(t, "cleanup", "feature"); err != nil {
+		t.Fatal(err)
+	}
+	assertFileContents(t, herdrLog, strings.Join([]string{
+		"worktree", "list", "--cwd", repo,
+		"worktree", "remove", "--workspace", "w1",
+	}, "\n")+"\n")
+}
+
+func TestPruneClosesHerdrWorkspaces(t *testing.T) {
+	repo, first := cleanupRepo(t, "first")
+	second := worktreePath(repo, "trees", "second")
+	gitRun(t, repo, "worktree", "add", "-q", "-b", "second", second)
+	herdrLog := filepath.Join(t.TempDir(), "herdr.log")
+	t.Setenv("HERDR_TEST_LOG", herdrLog)
+	t.Setenv("HERDR_TEST_WORKTREES", fmt.Sprintf(`{"result":{"worktrees":[{"path":%q,"open_workspace_id":"w1"},{"path":%q,"open_workspace_id":"w2"}]}}`, first, second))
+
+	if _, _, err := execute(t, "prune"); err != nil {
+		t.Fatal(err)
+	}
+	log, err := os.ReadFile(herdrLog)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, call := range []string{"worktree\nremove\n--workspace\nw1\n", "worktree\nremove\n--workspace\nw2\n"} {
+		if !strings.Contains(string(log), call) {
+			t.Fatalf("missing Herdr call %q in %q", call, log)
+		}
+	}
 }
 
 func TestCleanupRejectsUncommittedChanges(t *testing.T) {
@@ -110,6 +148,7 @@ func TestPruneRejectsArguments(t *testing.T) {
 
 func cleanupRepo(t *testing.T, branch string) (string, string) {
 	t.Helper()
+	installHerdrForCleanup(t)
 	repo := gitRepo(t)
 	gitRun(t, repo, "config", "user.email", "test@example.com")
 	gitRun(t, repo, "config", "user.name", "Test")
@@ -125,4 +164,24 @@ func cleanupRepo(t *testing.T, branch string) (string, string) {
 	gitRun(t, repo, "worktree", "add", "-q", "-b", branch, worktree)
 	t.Chdir(repo)
 	return repo, worktree
+}
+
+func installHerdrForCleanup(t *testing.T) {
+	t.Helper()
+	dir := t.TempDir()
+	herdr := filepath.Join(dir, "herdr")
+	contents := `#!/bin/sh
+[ -z "$HERDR_TEST_LOG" ] || printf '%s\n' "$@" >> "$HERDR_TEST_LOG"
+if [ "$1 $2" = "worktree list" ]; then
+  if [ -n "$HERDR_TEST_WORKTREES" ]; then
+    printf '%s\n' "$HERDR_TEST_WORKTREES"
+  else
+    printf '%s\n' '{"result":{"worktrees":[]}}'
+  fi
+fi
+`
+	if err := os.WriteFile(herdr, []byte(contents), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("PATH", dir+string(os.PathListSeparator)+os.Getenv("PATH"))
 }
