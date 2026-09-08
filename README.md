@@ -52,6 +52,7 @@ heft comes with sane defaults, but the following options can be changed:
 
 - `worktrees_dir` - heft uses `<project root>/.worktrees` to store all worktrees.
 - `base_branch` - worktrees are based on `main`.
+- `workspace_prefix` - Herdr workspace names use the repository name by default.
 - `tabs` - an ordered list of Herdr tabs. Each tab requires a `name`; an optional
   `command` is run in its root pane.
 
@@ -61,6 +62,7 @@ second:
 ```yaml
 worktrees_dir: .worktrees
 base_branch: main
+workspace_prefix: heft
 tabs:
   - name: codex
     command: codex
@@ -80,7 +82,8 @@ heft work feature/abc
 ```
 
 This creates branch `feature/abc` in `<worktrees_dir>/feature_abc` and a Herdr
-workspace named `feature/abc` rooted there.
+workspace named `heft feature/abc` rooted there. Set `workspace_prefix` to use a
+different prefix.
 
 Keep the current workspace focused while opening the new one:
 

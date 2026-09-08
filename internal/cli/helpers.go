@@ -17,6 +17,14 @@ func projectRoot() (string, error) {
 	return strings.TrimSpace(string(out)), nil
 }
 
+func repositoryName(root string) (string, error) {
+	out, err := exec.Command("git", "-C", root, "rev-parse", "--path-format=absolute", "--git-common-dir").Output()
+	if err != nil {
+		return "", fmt.Errorf("find repository name: %w", err)
+	}
+	return filepath.Base(filepath.Dir(strings.TrimSpace(string(out)))), nil
+}
+
 func runGit(cmd *cobra.Command, root string, args ...string) error {
 	git := exec.CommandContext(cmd.Context(), "git", append([]string{"-C", root}, args...)...)
 	git.Stdin, git.Stdout, git.Stderr = cmd.InOrStdin(), cmd.OutOrStdout(), cmd.ErrOrStderr()

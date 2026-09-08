@@ -7,6 +7,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -34,8 +35,16 @@ func newWorkCommand() *cobra.Command {
 			if err := ensureWorktreesIgnored(root, cfg.WorktreesDir); err != nil {
 				return err
 			}
+			prefix := strings.TrimSpace(cfg.WorkspacePrefix)
+			if prefix == "" {
+				prefix, err = repositoryName(root)
+				if err != nil {
+					return err
+				}
+			}
 
 			branch := args[0]
+			label := prefix + " " + branch
 			if err := validateBranch(cmd, root, branch); err != nil {
 				return err
 			}
@@ -47,7 +56,7 @@ func newWorkCommand() *cobra.Command {
 				return fmt.Errorf("create worktree: %w", err)
 			}
 			if len(cfg.Tabs) == 0 {
-				args := []string{"workspace", "create", "--cwd", path, "--label", branch}
+				args := []string{"workspace", "create", "--cwd", path, "--label", label}
 				if noFocus {
 					args = append(args, "--no-focus")
 				}
@@ -57,7 +66,7 @@ func newWorkCommand() *cobra.Command {
 			if noFocus {
 				focus = "--no-focus"
 			}
-			created, err := createHerdr(cmd, "create herdr workspace", "workspace", "create", "--cwd", path, "--label", branch, focus)
+			created, err := createHerdr(cmd, "create herdr workspace", "workspace", "create", "--cwd", path, "--label", label, focus)
 			if err != nil {
 				return err
 			}

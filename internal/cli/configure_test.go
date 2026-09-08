@@ -23,7 +23,7 @@ func TestConfigure(t *testing.T) {
 	if err != nil {
 		t.Fatalf("execute configure command: %v", err)
 	}
-	if want := "Worktrees directory [.worktrees]: Base branch [main]: "; stdout != want {
+	if want := "Worktrees directory [.worktrees]: Base branch [main]: Workspace prefix [" + filepath.Base(dir) + "]: \n"; stdout != want {
 		t.Fatalf("configure output = %q, want %q", stdout, want)
 	}
 	path := filepath.Join(dir, ".heft.yaml")
@@ -31,19 +31,19 @@ func TestConfigure(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if want := "worktrees_dir: trees\nbase_branch: develop\ntabs:\n    - name: shell\n"; string(data) != want {
+	if want := "worktrees_dir: trees\nbase_branch: develop\nworkspace_prefix: \"" + filepath.Base(dir) + "\"\ntabs:\n    - name: shell\n"; string(data) != want {
 		t.Fatalf("config = %q, want %q", data, want)
 	}
 	assertFileContents(t, filepath.Join(dir, ".gitignore"), "/vendor/\n/trees/\n")
 
-	if _, _, err := executeWithInput(t, "new trees\n\n", "configure"); err != nil {
+	if _, _, err := executeWithInput(t, "new trees\n\n custom \n", "configure"); err != nil {
 		t.Fatalf("reconfigure: %v", err)
 	}
 	data, err = os.ReadFile(path)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if want := "worktrees_dir: new trees\nbase_branch: develop\ntabs:\n    - name: shell\n"; string(data) != want {
+	if want := "worktrees_dir: new trees\nbase_branch: develop\nworkspace_prefix: custom\ntabs:\n    - name: shell\n"; string(data) != want {
 		t.Fatalf("reconfigured config = %q, want %q", data, want)
 	}
 	assertFileContents(t, filepath.Join(dir, ".gitignore"), "/vendor/\n/trees/\n/new trees/\n")
@@ -64,7 +64,7 @@ func TestConfigurePreservesTabs(t *testing.T) {
 	if _, _, err := executeWithInput(t, "\n\n", "configure"); err != nil {
 		t.Fatal(err)
 	}
-	assertFileContents(t, path, "worktrees_dir: trees\nbase_branch: main\ntabs:\n    - name: codex\n      command: codex --dangerously-bypass-approvals-and-sandbox\n    - name: shell\n")
+	assertFileContents(t, path, "worktrees_dir: trees\nbase_branch: main\nworkspace_prefix: \""+filepath.Base(dir)+"\"\ntabs:\n    - name: codex\n      command: codex --dangerously-bypass-approvals-and-sandbox\n    - name: shell\n")
 }
 
 func TestReadConfigRejectsInvalidTabs(t *testing.T) {

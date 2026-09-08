@@ -17,14 +17,14 @@ func TestInitChecksForHerdr(t *testing.T) {
 		if err != nil {
 			t.Fatalf("execute init command: %v", err)
 		}
-		if want := "herdr is installed\nWorktrees directory [.worktrees]: \nBase branch [main]: \n"; stdout != want {
+		if want := "herdr is installed\nWorktrees directory [.worktrees]: \nBase branch [main]: \nWorkspace prefix [" + filepath.Base(dir) + "]: \n"; stdout != want {
 			t.Fatalf("init output = %q, want %q", stdout, want)
 		}
 		data, err := os.ReadFile(filepath.Join(dir, ".heft.yaml"))
 		if err != nil {
 			t.Fatal(err)
 		}
-		if want := "worktrees_dir: .worktrees\nbase_branch: main\ntabs:\n    - name: shell\n"; string(data) != want {
+		if want := "worktrees_dir: .worktrees\nbase_branch: main\nworkspace_prefix: \"" + filepath.Base(dir) + "\"\ntabs:\n    - name: shell\n"; string(data) != want {
 			t.Fatalf("config = %q, want %q", data, want)
 		}
 		assertFileContents(t, filepath.Join(dir, ".gitignore"), "/.worktrees/\n")

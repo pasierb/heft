@@ -14,9 +14,10 @@ import (
 )
 
 type config struct {
-	WorktreesDir string `yaml:"worktrees_dir"`
-	BaseBranch   string `yaml:"base_branch"`
-	Tabs         []tab  `yaml:"tabs,omitempty"`
+	WorktreesDir    string `yaml:"worktrees_dir"`
+	BaseBranch      string `yaml:"base_branch"`
+	WorkspacePrefix string `yaml:"workspace_prefix,omitempty"`
+	Tabs            []tab  `yaml:"tabs,omitempty"`
 }
 
 type tab struct {
@@ -52,6 +53,15 @@ func configure(cmd *cobra.Command, root string) error {
 	if cfg.BaseBranch, err = prompt(reader, cmd.OutOrStdout(), "Base branch", cfg.BaseBranch); err != nil {
 		return err
 	}
+	if strings.TrimSpace(cfg.WorkspacePrefix) == "" {
+		if cfg.WorkspacePrefix, err = repositoryName(root); err != nil {
+			return err
+		}
+	}
+	if cfg.WorkspacePrefix, err = prompt(reader, cmd.OutOrStdout(), "Workspace prefix", cfg.WorkspacePrefix); err != nil {
+		return err
+	}
+	cfg.WorkspacePrefix = strings.TrimSpace(cfg.WorkspacePrefix)
 	tmp, err := os.CreateTemp(root, ".heft.yaml-*")
 	if err != nil {
 		return fmt.Errorf("create config: %w", err)
