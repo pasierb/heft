@@ -57,3 +57,12 @@ heft work feature/abc
 
 This creates branch `feature/abc` in `<worktrees_dir>/feature_abc` and a Herdr
 workspace named `feature/abc` rooted there.
+
+Remove a worktree after checking that it has no staged, unstaged, or untracked
+changes:
+
+```sh
+heft cleanup feature/abc
+```
+
+The local branch is preserved.

@@ -29,7 +29,7 @@ func New(version string) *cobra.Command {
 	}
 
 	root.SetVersionTemplate("heft {{.Version}}\n")
-	root.AddCommand(newInitCommand(), newConfigureCommand(), newWorkCommand(), newVersionCommand(version))
+	root.AddCommand(newInitCommand(), newConfigureCommand(), newWorkCommand(), newCleanupCommand(), newVersionCommand(version))
 
 	return root
 }
@@ -59,7 +59,7 @@ func newWorkCommand() *cobra.Command {
 			if err := runGit(cmd, root, "fetch", "origin", cfg.baseBranch); err != nil {
 				return fmt.Errorf("fetch base branch: %w", err)
 			}
-			path := filepath.Join(root, cfg.worktreesDir, strings.ReplaceAll(branch, "/", "_"))
+			path := worktreePath(root, cfg.worktreesDir, branch)
 			if err := runGit(cmd, root, "worktree", "add", "-b", branch, path, "FETCH_HEAD"); err != nil {
 				return fmt.Errorf("create worktree: %w", err)
 			}
@@ -71,6 +71,57 @@ func newWorkCommand() *cobra.Command {
 			return nil
 		},
 	}
+}
+
+func newCleanupCommand() *cobra.Command {
+	return &cobra.Command{
+		Use:   "cleanup <branch>",
+		Short: "Remove a worktree",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			root, err := projectRoot()
+			if err != nil {
+				return err
+			}
+			cfg, err := readConfig(filepath.Join(root, ".heft.yaml"))
+			if err != nil {
+				return err
+			}
+
+			branch := args[0]
+			if err := exec.CommandContext(cmd.Context(), "git", "-C", root, "check-ref-format", "--branch", branch).Run(); err != nil {
+				return fmt.Errorf("invalid branch %q", branch)
+			}
+			path := worktreePath(root, cfg.worktreesDir, branch)
+			checks := []func(*cobra.Command, string) error{checkUncommittedChanges}
+			for _, check := range checks {
+				if err := check(cmd, path); err != nil {
+					return err
+				}
+			}
+			if err := runGit(cmd, root, "worktree", "remove", path); err != nil {
+				return fmt.Errorf("remove worktree: %w", err)
+			}
+			return nil
+		},
+	}
+}
+
+func worktreePath(root, dir, branch string) string {
+	return filepath.Join(root, dir, strings.ReplaceAll(branch, "/", "_"))
+}
+
+func checkUncommittedChanges(cmd *cobra.Command, path string) error {
+	git := exec.CommandContext(cmd.Context(), "git", "-C", path, "status", "--porcelain")
+	git.Stderr = cmd.ErrOrStderr()
+	out, err := git.Output()
+	if err != nil {
+		return fmt.Errorf("check uncommitted changes: %w", err)
+	}
+	if len(out) > 0 {
+		return errors.New("worktree has uncommitted changes")
+	}
+	return nil
 }
 
 func runGit(cmd *cobra.Command, root string, args ...string) error {
