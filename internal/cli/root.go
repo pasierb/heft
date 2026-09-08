@@ -29,9 +29,46 @@ func New(version string) *cobra.Command {
 	}
 
 	root.SetVersionTemplate("heft {{.Version}}\n")
-	root.AddCommand(newInitCommand(), newConfigureCommand(), newVersionCommand(version))
+	root.AddCommand(newInitCommand(), newConfigureCommand(), newWorkCommand(), newVersionCommand(version))
 
 	return root
+}
+
+func newWorkCommand() *cobra.Command {
+	return &cobra.Command{
+		Use:   "work <branch>",
+		Short: "Create a worktree",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			root, err := projectRoot()
+			if err != nil {
+				return err
+			}
+			cfg, err := readConfig(filepath.Join(root, ".heft.yaml"))
+			if err != nil {
+				return err
+			}
+
+			branch := args[0]
+			if err := exec.CommandContext(cmd.Context(), "git", "-C", root, "check-ref-format", "--branch", branch).Run(); err != nil {
+				return fmt.Errorf("invalid branch %q", branch)
+			}
+			if err := runGit(cmd, root, "fetch", "origin", cfg.baseBranch); err != nil {
+				return fmt.Errorf("fetch base branch: %w", err)
+			}
+			path := filepath.Join(root, cfg.worktreesDir, strings.ReplaceAll(branch, "/", "_"))
+			if err := runGit(cmd, root, "worktree", "add", "-b", branch, path, "FETCH_HEAD"); err != nil {
+				return fmt.Errorf("create worktree: %w", err)
+			}
+			return nil
+		},
+	}
+}
+
+func runGit(cmd *cobra.Command, root string, args ...string) error {
+	git := exec.CommandContext(cmd.Context(), "git", append([]string{"-C", root}, args...)...)
+	git.Stdin, git.Stdout, git.Stderr = cmd.InOrStdin(), cmd.OutOrStdout(), cmd.ErrOrStderr()
+	return git.Run()
 }
 
 func newInitCommand() *cobra.Command {

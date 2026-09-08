@@ -46,3 +46,13 @@ heft comes with sane defaults, but the following options can be changed:
 
 - `worktrees_dir` - heft uses `<project root>/.worktrees` to store all worktrees.
 - `base_branch` - worktrees are based on `main`.
+
+## Worktrees
+
+Create a worktree and branch from the latest configured base branch on `origin`:
+
+```sh
+heft work feature/abc
+```
+
+This creates branch `feature/abc` in `<worktrees_dir>/feature_abc`.
