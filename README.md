@@ -39,6 +39,10 @@ Version information is available through either interface:
 
 ## Config
 
+`heft init` creates `.heft.yaml` at the Git project root and prompts for each
+setting. Run `heft configure` later to change them.
+
 heft comes with sane defaults, but the following options can be changed:
 
 - `worktrees_dir` - heft uses `<project root>/.worktrees` to store all worktrees.
+- `base_branch` - worktrees are based on `main`.
