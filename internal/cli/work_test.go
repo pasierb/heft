@@ -99,6 +99,53 @@ func TestWorkRequiresOneBranch(t *testing.T) {
 	}
 }
 
+func TestWorkReusesExistingBranches(t *testing.T) {
+	for _, remote := range []bool{false, true} {
+		name := "local"
+		location := "locally"
+		if remote {
+			name = "remote"
+			location = "on origin"
+		}
+		t.Run(name, func(t *testing.T) {
+			repo := workRepo(t)
+			installHerdr(t)
+			if err := os.WriteFile(filepath.Join(repo, ".heft.yaml"), []byte("worktrees_dir: .worktrees\nbase_branch: main\ntabs: []\n"), 0o644); err != nil {
+				t.Fatal(err)
+			}
+			gitRun(t, repo, "checkout", "-qb", "feature")
+			if err := os.WriteFile(filepath.Join(repo, "file"), []byte(name+"\n"), 0o644); err != nil {
+				t.Fatal(err)
+			}
+			gitRun(t, repo, "commit", "-qam", name)
+			wantCommit := gitRun(t, repo, "rev-parse", "HEAD")
+			gitRun(t, repo, "checkout", "-q", "main")
+			if remote {
+				gitRun(t, repo, "push", "-qu", "origin", "feature")
+				gitRun(t, repo, "branch", "-D", "feature")
+			}
+			t.Chdir(repo)
+
+			stdout, _, err := execute(t, "work", "feature")
+			if err != nil {
+				t.Fatal(err)
+			}
+			worktree := filepath.Join(repo, ".worktrees", "feature")
+			if got := gitRun(t, worktree, "rev-parse", "HEAD"); got != wantCommit {
+				t.Fatalf("commit = %q, want %q", got, wantCommit)
+			}
+			if !strings.Contains(stdout, "already exists "+location) {
+				t.Fatalf("unexpected output: %q", stdout)
+			}
+			if remote {
+				if got := gitRun(t, worktree, "rev-parse", "--abbrev-ref", "@{upstream}"); got != "origin/feature" {
+					t.Fatalf("upstream = %q, want origin/feature", got)
+				}
+			}
+		})
+	}
+}
+
 func TestListShowsWorktrees(t *testing.T) {
 	repo := workRepo(t)
 	worktree := filepath.Join(t.TempDir(), "feature")
