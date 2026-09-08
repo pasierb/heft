@@ -12,11 +12,18 @@ shuffling branches or local changes.
 
 - Git
 - Herdr
-- Go 1.26 or newer to build from source
+- curl, tar, and sha256sum to install a release
+- Go 1.26 or newer only when building from source
 
 ## Quick start
 
-Build and install `heft` for the current user:
+Install the latest release for the current user:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/pasierb/heft/main/install.sh | sh
+```
+
+To build and install from source instead:
 
 ```sh
 make install
