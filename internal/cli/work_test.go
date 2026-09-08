@@ -167,6 +167,43 @@ func TestWorkCreatesConfiguredTabsInOrder(t *testing.T) {
 	assertFileContents(t, log, want)
 }
 
+func TestWorkPromptsAgentInFirstTab(t *testing.T) {
+	repo := workRepo(t)
+	installHerdrForTabs(t)
+	log := filepath.Join(t.TempDir(), "herdr.log")
+	t.Setenv("HERDR_TEST_LOG", log)
+	if err := os.WriteFile(filepath.Join(repo, ".heft.yaml"), []byte("worktrees_dir: trees\nbase_branch: main\ntabs:\n  - name: codex\n    command: codex\n  - name: shell\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	t.Chdir(repo)
+
+	if _, _, err := execute(t, "work", "feature", "--prompt", "fix the failing test"); err != nil {
+		t.Fatal(err)
+	}
+	lines, err := os.ReadFile(log)
+	if err != nil {
+		t.Fatal(err)
+	}
+	wantSuffix := "agent\nget\np1\nagent\nwait\np1\n"
+	got := string(lines)
+	if !strings.Contains(got, wantSuffix+"--timeout\n") || !strings.HasSuffix(got, "agent\nprompt\np1\nfix the failing test\n") {
+		t.Fatalf("unexpected herdr calls: %q", got)
+	}
+}
+
+func TestWorkPromptRequiresAgentCommand(t *testing.T) {
+	repo := workRepo(t)
+	t.Chdir(repo)
+
+	_, _, err := execute(t, "work", "feature", "--prompt", "do the work")
+	if err == nil || err.Error() != "--prompt requires the first configured tab to start an agent" {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(repo, ".gitignore")); !os.IsNotExist(err) {
+		t.Fatalf("gitignore should not exist: %v", err)
+	}
+}
+
 func TestWorkConfiguredTabsStopOnHerdrFailure(t *testing.T) {
 	for _, fail := range []string{"workspace create", "tab rename", "pane run", "tab create"} {
 		t.Run(fail, func(t *testing.T) {

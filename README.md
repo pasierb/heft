@@ -82,6 +82,16 @@ heft work feature/abc
 This creates branch `feature/abc` in `<worktrees_dir>/feature_abc` and a Herdr
 workspace named `feature/abc` rooted there.
 
+To start work immediately, pass a prompt to the Herdr-recognized agent started
+by the first configured tab:
+
+```sh
+heft work feature/abc --prompt "Implement the feature"
+```
+
+The command returns after Herdr accepts the prompt; it does not wait for the
+agent to finish.
+
 List the repository's worktrees:
 
 ```sh
