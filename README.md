@@ -15,6 +15,12 @@ make build
 ./bin/heft --help
 ```
 
+Build and install it for the current user:
+
+```sh
+make install
+```
+
 Run it without building a binary:
 
 ```sh
