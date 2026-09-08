@@ -52,6 +52,24 @@ heft comes with sane defaults, but the following options can be changed:
 
 - `worktrees_dir` - heft uses `<project root>/.worktrees` to store all worktrees.
 - `base_branch` - worktrees are based on `main`.
+- `tabs` - an ordered list of Herdr tabs. Each tab requires a `name`; an optional
+  `command` is run in its root pane.
+
+For example, start Codex in the focused first tab and leave a shell ready in the
+second:
+
+```yaml
+worktrees_dir: .worktrees
+base_branch: main
+tabs:
+  - name: codex
+    command: codex
+  - name: shell
+```
+
+If `tabs` is omitted or empty, heft keeps the default single shell tab. Additional
+configured tabs are created without changing focus from the first tab. Newly
+generated configuration writes that default explicitly as `tabs: [{name: shell}]`.
 
 ## Worktrees
 

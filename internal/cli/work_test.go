@@ -57,6 +57,9 @@ func TestWorkCreatesBranchFromFetchedBase(t *testing.T) {
 		t.Fatalf("commit = %q, want %q", got, wantCommit)
 	}
 
+	if err := os.WriteFile(filepath.Join(repo, ".heft.yaml"), []byte("worktrees_dir: trees\nbase_branch: main\ntabs: []\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
 	if _, _, err := execute(t, "work", "simple"); err != nil {
 		t.Fatalf("create simple worktree: %v", err)
 	}
@@ -124,4 +127,65 @@ func TestWorkStopsWhenFetchFails(t *testing.T) {
 	if err := cmd.Run(); err == nil {
 		t.Fatal("branch should not exist")
 	}
+}
+
+func TestWorkCreatesConfiguredTabsInOrder(t *testing.T) {
+	repo := workRepo(t)
+	installHerdrForTabs(t)
+	log := filepath.Join(t.TempDir(), "herdr.log")
+	t.Setenv("HERDR_TEST_LOG", log)
+	if err := os.WriteFile(filepath.Join(repo, ".heft.yaml"), []byte("worktrees_dir: trees\nbase_branch: main\ntabs:\n  - name: codex\n    command: codex --model gpt-5\n  - name: shell\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	t.Chdir(repo)
+
+	if _, _, err := execute(t, "work", "feature"); err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(repo, "trees", "feature")
+	want := strings.Join([]string{
+		"workspace", "create", "--cwd", path, "--label", "feature", "--focus",
+		"tab", "rename", "t1", "codex",
+		"pane", "run", "p1", "codex --model gpt-5",
+		"tab", "create", "--workspace", "w1", "--cwd", path, "--label", "shell", "--no-focus",
+	}, "\n") + "\n"
+	assertFileContents(t, log, want)
+}
+
+func TestWorkConfiguredTabsStopOnHerdrFailure(t *testing.T) {
+	for _, fail := range []string{"workspace create", "tab rename", "pane run", "tab create"} {
+		t.Run(fail, func(t *testing.T) {
+			repo := workRepo(t)
+			installHerdrForTabs(t)
+			t.Setenv("HERDR_TEST_LOG", filepath.Join(t.TempDir(), "herdr.log"))
+			t.Setenv("HERDR_FAIL_MATCH", fail)
+			if err := os.WriteFile(filepath.Join(repo, ".heft.yaml"), []byte("worktrees_dir: trees\nbase_branch: main\ntabs:\n  - name: codex\n    command: codex --model gpt-5\n  - name: shell\n"), 0o644); err != nil {
+				t.Fatal(err)
+			}
+			t.Chdir(repo)
+			if _, _, err := execute(t, "work", "feature"); err == nil {
+				t.Fatal("expected Herdr error")
+			}
+		})
+	}
+}
+
+func workRepo(t *testing.T) string {
+	t.Helper()
+	remote := filepath.Join(t.TempDir(), "origin.git")
+	if out, err := exec.Command("git", "init", "-q", "--bare", remote).CombinedOutput(); err != nil {
+		t.Fatalf("git init --bare: %v: %s", err, out)
+	}
+	repo := gitRepo(t)
+	gitRun(t, repo, "config", "user.email", "test@example.com")
+	gitRun(t, repo, "config", "user.name", "Test")
+	if err := os.WriteFile(filepath.Join(repo, "file"), []byte("content\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	gitRun(t, repo, "add", "file")
+	gitRun(t, repo, "commit", "-qm", "initial")
+	gitRun(t, repo, "branch", "-M", "main")
+	gitRun(t, repo, "remote", "add", "origin", remote)
+	gitRun(t, repo, "push", "-qu", "origin", "main")
+	return repo
 }

@@ -1,2 +1,6 @@
 worktrees_dir: .worktrees
 base_branch: main
+tabs:
+    - name: codex
+      command: codex
+    - name: shell

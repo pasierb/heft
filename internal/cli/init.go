@@ -33,7 +33,7 @@ func newInitCommand() *cobra.Command {
 				if err != nil {
 					return err
 				}
-				return ensureWorktreesIgnored(root, cfg.worktreesDir)
+				return ensureWorktreesIgnored(root, cfg.WorktreesDir)
 			} else if !errors.Is(err, os.ErrNotExist) {
 				return err
 			}

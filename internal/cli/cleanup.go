@@ -28,7 +28,7 @@ func newCleanupCommand() *cobra.Command {
 			if err := validateBranch(cmd, root, branch); err != nil {
 				return err
 			}
-			path := worktreePath(root, cfg.worktreesDir, branch)
+			path := worktreePath(root, cfg.WorktreesDir, branch)
 			checks := []func(*cobra.Command, string) error{checkUncommittedChanges}
 			for _, check := range checks {
 				if err := check(cmd, path); err != nil {

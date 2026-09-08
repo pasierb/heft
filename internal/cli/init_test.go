@@ -24,7 +24,7 @@ func TestInitChecksForHerdr(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if want := "worktrees_dir: .worktrees\nbase_branch: main\n"; string(data) != want {
+		if want := "worktrees_dir: .worktrees\nbase_branch: main\ntabs:\n    - name: shell\n"; string(data) != want {
 			t.Fatalf("config = %q, want %q", data, want)
 		}
 		assertFileContents(t, filepath.Join(dir, ".gitignore"), "/.worktrees/\n")

@@ -7,15 +7,21 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"strconv"
 	"strings"
 
 	"github.com/spf13/cobra"
+	"go.yaml.in/yaml/v3"
 )
 
 type config struct {
-	worktreesDir string
-	baseBranch   string
+	WorktreesDir string `yaml:"worktrees_dir"`
+	BaseBranch   string `yaml:"base_branch"`
+	Tabs         []tab  `yaml:"tabs,omitempty"`
+}
+
+type tab struct {
+	Name    string `yaml:"name"`
+	Command string `yaml:"command,omitempty"`
 }
 
 func newConfigureCommand() *cobra.Command {
@@ -40,10 +46,10 @@ func configure(cmd *cobra.Command, root string) error {
 		return err
 	}
 	reader := bufio.NewReader(cmd.InOrStdin())
-	if cfg.worktreesDir, err = prompt(reader, cmd.OutOrStdout(), "Worktrees directory", cfg.worktreesDir); err != nil {
+	if cfg.WorktreesDir, err = prompt(reader, cmd.OutOrStdout(), "Worktrees directory", cfg.WorktreesDir); err != nil {
 		return err
 	}
-	if cfg.baseBranch, err = prompt(reader, cmd.OutOrStdout(), "Base branch", cfg.baseBranch); err != nil {
+	if cfg.BaseBranch, err = prompt(reader, cmd.OutOrStdout(), "Base branch", cfg.BaseBranch); err != nil {
 		return err
 	}
 	tmp, err := os.CreateTemp(root, ".heft.yaml-*")
@@ -52,12 +58,16 @@ func configure(cmd *cobra.Command, root string) error {
 	}
 	tmpPath := tmp.Name()
 	defer os.Remove(tmpPath)
-	contents := fmt.Sprintf("worktrees_dir: %s\nbase_branch: %s\n", yamlScalar(cfg.worktreesDir), yamlScalar(cfg.baseBranch))
+	contents, err := yaml.Marshal(cfg)
+	if err != nil {
+		tmp.Close()
+		return fmt.Errorf("encode config: %w", err)
+	}
 	if err := tmp.Chmod(0o644); err != nil {
 		tmp.Close()
 		return fmt.Errorf("set config permissions: %w", err)
 	}
-	if _, err := tmp.WriteString(contents); err != nil {
+	if _, err := tmp.Write(contents); err != nil {
 		tmp.Close()
 		return fmt.Errorf("write config: %w", err)
 	}
@@ -67,7 +77,7 @@ func configure(cmd *cobra.Command, root string) error {
 	if err := os.Rename(tmpPath, path); err != nil {
 		return fmt.Errorf("replace config: %w", err)
 	}
-	return ensureWorktreesIgnored(root, cfg.worktreesDir)
+	return ensureWorktreesIgnored(root, cfg.WorktreesDir)
 }
 
 func ensureWorktreesIgnored(root, dir string) error {
@@ -101,7 +111,7 @@ func ensureWorktreesIgnored(root, dir string) error {
 }
 
 func readConfig(path string) (config, error) {
-	cfg := config{worktreesDir: ".worktrees", baseBranch: "main"}
+	cfg := config{WorktreesDir: ".worktrees", BaseBranch: "main", Tabs: []tab{{Name: "shell"}}}
 	data, err := os.ReadFile(path)
 	if errors.Is(err, os.ErrNotExist) {
 		return cfg, nil
@@ -109,37 +119,27 @@ func readConfig(path string) (config, error) {
 	if err != nil {
 		return config{}, fmt.Errorf("read config: %w", err)
 	}
-	values := make(map[string]string, 2)
-	scanner := bufio.NewScanner(strings.NewReader(string(data)))
-	for scanner.Scan() {
-		key, value, ok := strings.Cut(scanner.Text(), ":")
-		key, value = strings.TrimSpace(key), strings.TrimSpace(value)
-		if !ok || value == "" || (key != "worktrees_dir" && key != "base_branch") {
-			return config{}, fmt.Errorf("invalid config entry %q", scanner.Text())
-		}
-		if _, exists := values[key]; exists {
-			return config{}, fmt.Errorf("duplicate config key %q", key)
-		}
-		if strings.HasPrefix(value, `"`) {
-			value, err = strconv.Unquote(value)
-			if err != nil {
-				return config{}, fmt.Errorf("invalid value for %q: %w", key, err)
-			}
-		} else if yamlScalar(value) != value {
-			return config{}, fmt.Errorf("invalid unquoted value for %q", key)
-		}
-		if value == "" {
-			return config{}, fmt.Errorf("empty value for %q", key)
-		}
-		values[key] = value
+	cfg = config{}
+	decoder := yaml.NewDecoder(strings.NewReader(string(data)))
+	decoder.KnownFields(true)
+	if err := decoder.Decode(&cfg); err != nil {
+		return config{}, fmt.Errorf("parse config: %w", err)
 	}
-	if err := scanner.Err(); err != nil {
-		return config{}, fmt.Errorf("read config: %w", err)
+	if err := decoder.Decode(&struct{}{}); err != io.EOF {
+		if err == nil {
+			return config{}, fmt.Errorf("parse config: multiple YAML documents")
+		}
+		return config{}, fmt.Errorf("parse config: %w", err)
 	}
-	if len(values) != 2 {
+	if cfg.WorktreesDir == "" || cfg.BaseBranch == "" {
 		return config{}, fmt.Errorf("config must contain worktrees_dir and base_branch")
 	}
-	return config{worktreesDir: values["worktrees_dir"], baseBranch: values["base_branch"]}, nil
+	for i, tab := range cfg.Tabs {
+		if strings.TrimSpace(tab.Name) == "" {
+			return config{}, fmt.Errorf("tabs[%d].name must not be empty", i)
+		}
+	}
+	return cfg, nil
 }
 
 func prompt(reader *bufio.Reader, out io.Writer, label, current string) (string, error) {
@@ -159,13 +159,4 @@ func prompt(reader *bufio.Reader, out io.Writer, label, current string) (string,
 		return answer, nil
 	}
 	return current, nil
-}
-
-func yamlScalar(value string) string {
-	for _, r := range value {
-		if !((r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') || strings.ContainsRune("._/-", r)) {
-			return strconv.Quote(value)
-		}
-	}
-	return value
 }

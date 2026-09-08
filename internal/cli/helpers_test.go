@@ -59,6 +59,26 @@ func installHerdr(t *testing.T) {
 	t.Setenv("PATH", dir+string(os.PathListSeparator)+os.Getenv("PATH"))
 }
 
+func installHerdrForTabs(t *testing.T) {
+	t.Helper()
+	dir := t.TempDir()
+	herdr := filepath.Join(dir, "herdr")
+	contents := `#!/bin/sh
+printf '%s\n' "$@" >> "$HERDR_TEST_LOG"
+case "$*" in
+  *"$HERDR_FAIL_MATCH"*) [ -z "$HERDR_FAIL_MATCH" ] || exit 1 ;;
+esac
+case "$1 $2" in
+  "workspace create") printf '%s\n' '{"result":{"workspace":{"workspace_id":"w1"},"tab":{"tab_id":"t1"},"root_pane":{"pane_id":"p1"}}}' ;;
+  "tab create") printf '%s\n' '{"result":{"tab":{"tab_id":"t2"},"root_pane":{"pane_id":"p2"}}}' ;;
+esac
+`
+	if err := os.WriteFile(herdr, []byte(contents), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("PATH", dir+string(os.PathListSeparator)+os.Getenv("PATH"))
+}
+
 func assertFileContents(t *testing.T, path, want string) {
 	t.Helper()
 	data, err := os.ReadFile(path)

@@ -31,7 +31,7 @@ func TestConfigure(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if want := "worktrees_dir: trees\nbase_branch: develop\n"; string(data) != want {
+	if want := "worktrees_dir: trees\nbase_branch: develop\ntabs:\n    - name: shell\n"; string(data) != want {
 		t.Fatalf("config = %q, want %q", data, want)
 	}
 	assertFileContents(t, filepath.Join(dir, ".gitignore"), "/vendor/\n/trees/\n")
@@ -43,7 +43,7 @@ func TestConfigure(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if want := "worktrees_dir: \"new trees\"\nbase_branch: develop\n"; string(data) != want {
+	if want := "worktrees_dir: new trees\nbase_branch: develop\ntabs:\n    - name: shell\n"; string(data) != want {
 		t.Fatalf("reconfigured config = %q, want %q", data, want)
 	}
 	assertFileContents(t, filepath.Join(dir, ".gitignore"), "/vendor/\n/trees/\n/new trees/\n")
@@ -51,6 +51,40 @@ func TestConfigure(t *testing.T) {
 		t.Fatalf("configure without changes: %v", err)
 	}
 	assertFileContents(t, filepath.Join(dir, ".gitignore"), "/vendor/\n/trees/\n/new trees/\n")
+}
+
+func TestConfigurePreservesTabs(t *testing.T) {
+	dir := gitRepo(t)
+	t.Chdir(dir)
+	path := filepath.Join(dir, ".heft.yaml")
+	if err := os.WriteFile(path, []byte("worktrees_dir: trees\nbase_branch: main\ntabs:\n  - name: codex\n    command: codex --dangerously-bypass-approvals-and-sandbox\n  - name: shell\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	if _, _, err := executeWithInput(t, "\n\n", "configure"); err != nil {
+		t.Fatal(err)
+	}
+	assertFileContents(t, path, "worktrees_dir: trees\nbase_branch: main\ntabs:\n    - name: codex\n      command: codex --dangerously-bypass-approvals-and-sandbox\n    - name: shell\n")
+}
+
+func TestReadConfigRejectsInvalidTabs(t *testing.T) {
+	for name, contents := range map[string]string{
+		"malformed":     "worktrees_dir: trees\nbase_branch: main\ntabs: nope\n",
+		"empty name":    "worktrees_dir: trees\nbase_branch: main\ntabs:\n  - name: '  '\n",
+		"unknown field": "worktrees_dir: trees\nbase_branch: main\ntabs:\n  - name: shell\n    extra: value\n",
+		"missing base":  "worktrees_dir: trees\ntabs: []\n",
+		"multiple docs": "worktrees_dir: trees\nbase_branch: main\n---\nworktrees_dir: other\n",
+	} {
+		t.Run(name, func(t *testing.T) {
+			path := filepath.Join(t.TempDir(), ".heft.yaml")
+			if err := os.WriteFile(path, []byte(contents), 0o644); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := readConfig(path); err == nil {
+				t.Fatal("expected invalid config")
+			}
+		})
+	}
 }
 
 func TestConfigureRejectsInvalidConfig(t *testing.T) {
