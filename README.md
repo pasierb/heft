@@ -1,63 +1,92 @@
 # heft
 
-Seamless worktrees management for `herdr` users
+`heft` helps you work on several tasks at once with Git worktrees and Herdr.
+It gives each task a branch, a worktree, and a Herdr workspace, following one
+consistent workflow that is easy to use from scripts.
+
+Pass a prompt when you create the worktree and heft will start your agent there.
+Your current workspace stays open, so you can move between tasks without
+shuffling branches or local changes.
 
 ## Requirements
 
-- Go 1.26 or newer
+- Git
+- Herdr
+- Go 1.26 or newer to build from source
 
-## Development
+## Quick start
 
-Build the `heft` binary:
-
-```sh
-make build
-./bin/heft --help
-```
-
-Build and install it for the current user:
+Build and install `heft` for the current user:
 
 ```sh
 make install
 ```
 
-Run it without building a binary:
+Initialize it in a Git repository:
 
 ```sh
-make run
+heft init
 ```
 
-Run the test suite:
+Create a worktree and Herdr workspace for a task:
 
 ```sh
-make test
+heft work feature/abc
 ```
 
-Version information is available through either interface:
+Heft fetches `origin`, creates `feature/abc` from the configured base branch,
+checks it out at `.worktrees/feature_abc`, and opens a Herdr workspace there.
+If the branch already exists locally or on `origin`, heft reuses it.
+
+List the repository's worktrees:
 
 ```sh
-./bin/heft --version
-./bin/heft version
+heft list
 ```
 
-`make build` derives the version from Git. Direct `go build` invocations report
-`dev` unless a version is supplied with `-ldflags "-X main.version=<version>"`.
+Remove a worktree when it has no staged, unstaged, or untracked changes:
 
-## Config
+```sh
+heft cleanup feature/abc
+```
+
+The local branch is preserved. To remove every clean linked worktree while
+leaving dirty worktrees and local branches untouched, run:
+
+```sh
+heft prune
+```
+
+## Scriptable workflows
+
+Small project-specific commands can wrap `heft work`. For example, this
+repository has a Make target for starting work on a Fizzy card:
+
+```sh
+make work-on-fizzy 33
+```
+
+The target runs the equivalent of:
+
+```sh
+heft work fizzy-33 --prompt="Check the fizzy card id=33, analyze it and prepare solution plan"
+```
+
+Heft creates the worktree and workspace, starts the command configured for the
+first tab, waits for Herdr to recognize the agent, then sends the prompt. The
+command returns once Herdr accepts the prompt. The agent continues working in
+its new workspace.
+
+Use `--no-focus` when a script should keep the current workspace focused:
+
+```sh
+heft work feature/abc --no-focus
+```
+
+## Configuration
 
 `heft init` creates `.heft.yaml` at the Git project root and prompts for each
 setting. Run `heft configure` later to change them.
-
-heft comes with sane defaults, but the following options can be changed:
-
-- `worktrees_dir` - heft uses `<project root>/.worktrees` to store all worktrees.
-- `base_branch` - worktrees are based on `main`.
-- `workspace_prefix` - Herdr workspace names use the repository name by default.
-- `tabs` - an ordered list of Herdr tabs. Each tab requires a `name`; an optional
-  `command` is run in its root pane.
-
-For example, start Codex in the focused first tab and leave a shell ready in the
-second:
 
 ```yaml
 worktrees_dir: .worktrees
@@ -69,57 +98,44 @@ tabs:
   - name: shell
 ```
 
-If `tabs` is omitted or empty, heft keeps the default single shell tab. Additional
-configured tabs are created without changing focus from the first tab. Newly
-generated configuration writes that default explicitly as `tabs: [{name: shell}]`.
+- `worktrees_dir` controls where worktrees are stored. The default is
+  `.worktrees`; heft also adds the directory to `.gitignore`.
+- `base_branch` is the branch used for new worktrees. The default is `main`.
+- `workspace_prefix` prefixes Herdr workspace names. It defaults to the
+  repository name, producing names such as `heft feature/abc`.
+- `tabs` is an ordered list of Herdr tabs. Each tab needs a `name`; an optional
+  `command` runs in its root pane.
 
-## Worktrees
+With no `tabs` setting, heft creates one Herdr workspace with its default tab.
+New configuration records the default as `tabs: [{name: shell}]`. Any extra
+tabs open in the background, leaving the first tab focused.
 
-Create a worktree and branch from the latest configured base branch on `origin`,
-or reuse the branch when it already exists locally or on `origin`:
+`--prompt` requires the first configured tab to start a Herdr-recognized agent.
+In the example above, that is `codex`.
 
-```sh
-heft work feature/abc
-```
+## Commands
 
-This creates branch `feature/abc` in `<worktrees_dir>/feature_abc` and a Herdr
-workspace named `heft feature/abc` rooted there. Set `workspace_prefix` to use a
-different prefix.
+| Command | Description |
+| --- | --- |
+| `heft init` | Check for Herdr and create the project configuration |
+| `heft configure` | Update the project configuration interactively |
+| `heft work <branch>` | Create or reuse a branch, worktree, and Herdr workspace |
+| `heft work <branch> --prompt <text>` | Start and prompt the agent in the first configured tab |
+| `heft work <branch> --no-focus` | Keep the current Herdr workspace focused |
+| `heft list` | List the repository's worktrees |
+| `heft cleanup <branch>` | Close its Herdr workspace and remove a clean worktree |
+| `heft prune` | Remove all clean linked worktrees |
+| `heft version` / `heft --version` | Print version information |
 
-Keep the current workspace focused while opening the new one:
+Run `heft <command> --help` for command-specific usage.
 
-```sh
-heft work feature/abc --no-focus
-```
-
-To start work immediately, pass a prompt to the Herdr-recognized agent started
-by the first configured tab:
-
-```sh
-heft work feature/abc --prompt "Implement the feature"
-```
-
-The command returns after Herdr accepts the prompt; it does not wait for the
-agent to finish.
-
-List the repository's worktrees:
+## Development
 
 ```sh
-heft list
+make build   # build bin/heft
+make run     # run without installing
+make test    # run the test suite
 ```
 
-Remove a worktree after checking that it has no staged, unstaged, or untracked
-changes:
-
-```sh
-heft cleanup feature/abc
-```
-
-The local branch is preserved.
-
-Remove every clean linked worktree, leaving dirty worktrees and local branches
-untouched:
-
-```sh
-heft prune
-```
+`make build` derives the version from Git. Direct `go build` invocations report
+`dev` unless a version is supplied with `-ldflags "-X main.version=<version>"`.
