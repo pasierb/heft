@@ -48,6 +48,23 @@ func gitRun(t *testing.T, dir string, args ...string) string {
 	return strings.TrimSpace(string(out))
 }
 
+func TestRepositoryNameIsStableAcrossWorktrees(t *testing.T) {
+	repo := workRepo(t)
+	worktree := filepath.Join(t.TempDir(), "linked")
+	gitRun(t, repo, "worktree", "add", "-qb", "linked", worktree)
+
+	want := filepath.Base(repo)
+	for _, root := range []string{repo, worktree} {
+		got, err := repositoryName(root)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got != want {
+			t.Fatalf("repositoryName(%q) = %q, want %q", root, got, want)
+		}
+	}
+}
+
 func installHerdr(t *testing.T) {
 	t.Helper()
 	dir := t.TempDir()
