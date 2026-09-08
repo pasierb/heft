@@ -96,3 +96,10 @@ heft cleanup feature/abc
 ```
 
 The local branch is preserved.
+
+Remove every clean linked worktree, leaving dirty worktrees and local branches
+untouched:
+
+```sh
+heft prune
+```
