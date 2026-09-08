@@ -2,5 +2,5 @@ worktrees_dir: .worktrees
 base_branch: main
 tabs:
     - name: codex
-      command: codex
+      command: codex -s danger-full-access
     - name: shell
