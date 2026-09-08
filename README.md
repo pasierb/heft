@@ -44,6 +44,12 @@ heft work feature/abc
 Heft fetches `origin`, creates `feature/abc` from the configured base branch,
 checks it out at `.worktrees/feature_abc`, and opens a Herdr workspace there.
 If the branch already exists locally or on `origin`, heft reuses it.
+Use `--label` to override the workspace label derived from the configured prefix
+and branch name:
+
+```sh
+heft work feature/abc --label "ticket 39"
+```
 
 List the repository's worktrees:
 
@@ -132,6 +138,7 @@ Herdr-recognized agent. In the example above, that is `codex`.
 | `heft init` | Check for Herdr and create the project configuration |
 | `heft configure` | Update the project configuration interactively |
 | `heft work <branch>` | Create or reuse a branch, worktree, and Herdr workspace |
+| `heft work <branch> --label <text>` | Set a custom Herdr workspace label |
 | `heft work <branch> --prompt <text>` | Start and prompt the configured agent tab |
 | `heft work <branch> --no-focus` | Keep the current Herdr workspace focused |
 | `heft list` | List the repository's worktrees |
