@@ -60,6 +60,11 @@ func newWorkCommand() *cobra.Command {
 			if err := runGit(cmd, root, "worktree", "add", "-b", branch, path, "FETCH_HEAD"); err != nil {
 				return fmt.Errorf("create worktree: %w", err)
 			}
+			herdr := exec.CommandContext(cmd.Context(), "herdr", "workspace", "create", "--cwd", path, "--label", branch)
+			herdr.Stdin, herdr.Stdout, herdr.Stderr = cmd.InOrStdin(), cmd.OutOrStdout(), cmd.ErrOrStderr()
+			if err := herdr.Run(); err != nil {
+				return fmt.Errorf("create herdr workspace: %w", err)
+			}
 			return nil
 		},
 	}

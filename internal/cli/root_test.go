@@ -52,7 +52,8 @@ func installHerdr(t *testing.T) {
 	t.Helper()
 	dir := t.TempDir()
 	herdr := filepath.Join(dir, "herdr")
-	if err := os.WriteFile(herdr, []byte("#!/bin/sh\n"), 0o755); err != nil {
+	contents := "#!/bin/sh\n[ -z \"$HERDR_TEST_LOG\" ] || printf '%s\\n' \"$@\" >> \"$HERDR_TEST_LOG\"\nexit \"${HERDR_TEST_EXIT:-0}\"\n"
+	if err := os.WriteFile(herdr, []byte(contents), 0o755); err != nil {
 		t.Fatal(err)
 	}
 	t.Setenv("PATH", dir+string(os.PathListSeparator)+os.Getenv("PATH"))
@@ -226,6 +227,10 @@ func TestUnknownCommand(t *testing.T) {
 }
 
 func TestWorkCreatesBranchFromFetchedBase(t *testing.T) {
+	installHerdr(t)
+	herdrLog := filepath.Join(t.TempDir(), "herdr.log")
+	t.Setenv("HERDR_TEST_LOG", herdrLog)
+
 	remote := filepath.Join(t.TempDir(), "origin.git")
 	if out, err := exec.Command("git", "init", "-q", "--bare", remote).CombinedOutput(); err != nil {
 		t.Fatalf("git init --bare: %v: %s", err, out)
@@ -276,8 +281,28 @@ func TestWorkCreatesBranchFromFetchedBase(t *testing.T) {
 	if got := gitRun(t, filepath.Join(repo, "trees", "simple"), "branch", "--show-current"); got != "simple" {
 		t.Fatalf("branch = %q, want simple", got)
 	}
+	t.Setenv("HERDR_TEST_EXIT", "1")
+	if _, _, err := execute(t, "work", "failed"); err == nil || !strings.Contains(err.Error(), "create herdr workspace") {
+		t.Fatalf("unexpected herdr error: %v", err)
+	}
+	if got := gitRun(t, filepath.Join(repo, "trees", "failed"), "branch", "--show-current"); got != "failed" {
+		t.Fatalf("branch = %q, want failed", got)
+	}
 	if _, _, err := execute(t, "work", "feature_abc"); err == nil {
 		t.Fatal("expected normalized directory collision")
+	}
+
+	data, err := os.ReadFile(herdrLog)
+	if err != nil {
+		t.Fatal(err)
+	}
+	wantHerdrCalls := strings.Join([]string{
+		"workspace", "create", "--cwd", filepath.Join(repo, "trees", "feature_abc"), "--label", "feature/abc",
+		"workspace", "create", "--cwd", filepath.Join(repo, "trees", "simple"), "--label", "simple",
+		"workspace", "create", "--cwd", filepath.Join(repo, "trees", "failed"), "--label", "failed",
+	}, "\n") + "\n"
+	if string(data) != wantHerdrCalls {
+		t.Fatalf("herdr calls = %q, want %q", data, wantHerdrCalls)
 	}
 }
 

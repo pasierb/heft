@@ -55,4 +55,5 @@ Create a worktree and branch from the latest configured base branch on `origin`:
 heft work feature/abc
 ```
 
-This creates branch `feature/abc` in `<worktrees_dir>/feature_abc`.
+This creates branch `feature/abc` in `<worktrees_dir>/feature_abc` and a Herdr
+workspace named `feature/abc` rooted there.
