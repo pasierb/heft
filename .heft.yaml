@@ -5,3 +5,6 @@ tabs:
       command: codex -s danger-full-access
       agent: true
     - name: shell
+    - name: hunk
+      command: hunk diff main
+
