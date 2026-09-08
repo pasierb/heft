@@ -104,11 +104,51 @@ func TestConfigurePreservesTabs(t *testing.T) {
 	assertFileContents(t, path, "worktrees_dir: trees\nbase_branch: main\nworkspace_prefix: \""+filepath.Base(dir)+"\"\ntabs:\n    - name: codex\n      command: codex --dangerously-bypass-approvals-and-sandbox\n      agent: true\n    - name: shell\n")
 }
 
+func TestConfigurePreservesUnknownFields(t *testing.T) {
+	dir := gitRepo(t)
+	t.Chdir(dir)
+	path := filepath.Join(dir, ".heft.yaml")
+	if err := os.WriteFile(path, []byte("worktrees_dir: trees\nbase_branch: main\nfuture: value\ntabs:\n  - name: codex\n    command: codex\n    agent: true\n    future_tab: value\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	if _, _, err := executeWithInput(t, "\n\n\n", "configure"); err != nil {
+		t.Fatal(err)
+	}
+	assertFileContents(t, path, "worktrees_dir: trees\nbase_branch: main\nworkspace_prefix: \""+filepath.Base(dir)+"\"\ntabs:\n    - name: codex\n      command: codex\n      agent: true\n      future_tab: value\nfuture: value\n")
+}
+
+func TestReadConfigAcceptsUnknownFields(t *testing.T) {
+	path := filepath.Join(t.TempDir(), ".heft.yaml")
+	contents := []byte("worktrees_dir: trees\nbase_branch: main\nfuture: value\ntabs:\n  - name: shell\n    future_tab: value\n")
+	if err := os.WriteFile(path, contents, 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := readConfig(path); err != nil {
+		t.Fatal(err)
+	}
+	assertFileContents(t, path, string(contents))
+}
+
+func TestConfigureRepairsMissingRequiredFields(t *testing.T) {
+	dir := gitRepo(t)
+	t.Chdir(dir)
+	path := filepath.Join(dir, ".heft.yaml")
+	if err := os.WriteFile(path, []byte("future: value\ntabs:\n  - name: codex\n    command: codex\n    agent: true\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	if _, _, err := executeWithInput(t, "\n\n\n", "configure"); err != nil {
+		t.Fatal(err)
+	}
+	assertFileContents(t, path, "worktrees_dir: .worktrees\nbase_branch: main\nworkspace_prefix: \""+filepath.Base(dir)+"\"\ntabs:\n    - name: codex\n      command: codex\n      agent: true\nfuture: value\n")
+}
+
 func TestReadConfigRejectsInvalidTabs(t *testing.T) {
 	for name, contents := range map[string]string{
 		"malformed":             "worktrees_dir: trees\nbase_branch: main\ntabs: nope\n",
 		"empty name":            "worktrees_dir: trees\nbase_branch: main\ntabs:\n  - name: '  '\n",
-		"unknown field":         "worktrees_dir: trees\nbase_branch: main\ntabs:\n  - name: shell\n    extra: value\n",
 		"missing base":          "worktrees_dir: trees\ntabs: []\n",
 		"multiple docs":         "worktrees_dir: trees\nbase_branch: main\n---\nworktrees_dir: other\n",
 		"agent without command": "worktrees_dir: trees\nbase_branch: main\ntabs:\n  - name: codex\n    agent: true\n",
@@ -130,7 +170,7 @@ func TestConfigureRejectsInvalidConfig(t *testing.T) {
 	dir := gitRepo(t)
 	t.Chdir(dir)
 	path := filepath.Join(dir, ".heft.yaml")
-	original := []byte("worktrees_dir: trees\nunknown: value\n")
+	original := []byte("worktrees_dir: [\n")
 	if err := os.WriteFile(path, original, 0o644); err != nil {
 		t.Fatal(err)
 	}

@@ -14,16 +14,18 @@ import (
 )
 
 type config struct {
-	WorktreesDir    string `yaml:"worktrees_dir"`
-	BaseBranch      string `yaml:"base_branch"`
-	WorkspacePrefix string `yaml:"workspace_prefix,omitempty"`
-	Tabs            []tab  `yaml:"tabs,omitempty"`
+	WorktreesDir    string         `yaml:"worktrees_dir"`
+	BaseBranch      string         `yaml:"base_branch"`
+	WorkspacePrefix string         `yaml:"workspace_prefix,omitempty"`
+	Tabs            []tab          `yaml:"tabs,omitempty"`
+	Extra           map[string]any `yaml:",inline"`
 }
 
 type tab struct {
-	Name    string `yaml:"name"`
-	Command string `yaml:"command,omitempty"`
-	Agent   bool   `yaml:"agent,omitempty"`
+	Name    string         `yaml:"name"`
+	Command string         `yaml:"command,omitempty"`
+	Agent   bool           `yaml:"agent,omitempty"`
+	Extra   map[string]any `yaml:",inline"`
 }
 
 func newConfigureCommand() *cobra.Command {
@@ -43,9 +45,15 @@ func newConfigureCommand() *cobra.Command {
 
 func configure(cmd *cobra.Command, root string) error {
 	path := filepath.Join(root, ".heft.yaml")
-	cfg, err := readConfig(path)
+	cfg, err := loadConfig(path)
 	if err != nil {
 		return err
+	}
+	if cfg.WorktreesDir == "" {
+		cfg.WorktreesDir = ".worktrees"
+	}
+	if cfg.BaseBranch == "" {
+		cfg.BaseBranch = "main"
 	}
 	reader := bufio.NewReader(cmd.InOrStdin())
 	if cfg.WorktreesDir, err = prompt(reader, cmd.OutOrStdout(), "Worktrees directory", cfg.WorktreesDir); err != nil {
@@ -69,6 +77,9 @@ func configure(cmd *cobra.Command, root string) error {
 			return err
 		}
 		cfg.Tabs = append([]tab{agent}, cfg.Tabs...)
+	}
+	if err := validateConfig(cfg); err != nil {
+		return err
 	}
 	tmp, err := os.CreateTemp(root, ".heft.yaml-*")
 	if err != nil {
@@ -188,6 +199,17 @@ func ensureWorktreesIgnored(root, dir string) error {
 }
 
 func readConfig(path string) (config, error) {
+	cfg, err := loadConfig(path)
+	if err != nil {
+		return config{}, err
+	}
+	if err := validateConfig(cfg); err != nil {
+		return config{}, err
+	}
+	return cfg, nil
+}
+
+func loadConfig(path string) (config, error) {
 	cfg := config{WorktreesDir: ".worktrees", BaseBranch: "main", Tabs: []tab{{Name: "shell"}}}
 	data, err := os.ReadFile(path)
 	if errors.Is(err, os.ErrNotExist) {
@@ -198,7 +220,6 @@ func readConfig(path string) (config, error) {
 	}
 	cfg = config{}
 	decoder := yaml.NewDecoder(strings.NewReader(string(data)))
-	decoder.KnownFields(true)
 	if err := decoder.Decode(&cfg); err != nil {
 		return config{}, fmt.Errorf("parse config: %w", err)
 	}
@@ -208,25 +229,29 @@ func readConfig(path string) (config, error) {
 		}
 		return config{}, fmt.Errorf("parse config: %w", err)
 	}
+	return cfg, nil
+}
+
+func validateConfig(cfg config) error {
 	if cfg.WorktreesDir == "" || cfg.BaseBranch == "" {
-		return config{}, fmt.Errorf("config must contain worktrees_dir and base_branch")
+		return fmt.Errorf("config must contain worktrees_dir and base_branch; run heft configure")
 	}
 	agentTab := -1
 	for i, tab := range cfg.Tabs {
 		if strings.TrimSpace(tab.Name) == "" {
-			return config{}, fmt.Errorf("tabs[%d].name must not be empty", i)
+			return fmt.Errorf("tabs[%d].name must not be empty", i)
 		}
 		if tab.Agent {
 			if agentTab >= 0 {
-				return config{}, fmt.Errorf("tabs[%d].agent: only one agent tab may be configured", i)
+				return fmt.Errorf("tabs[%d].agent: only one agent tab may be configured", i)
 			}
 			if strings.TrimSpace(tab.Command) == "" {
-				return config{}, fmt.Errorf("tabs[%d].agent requires command", i)
+				return fmt.Errorf("tabs[%d].agent requires command", i)
 			}
 			agentTab = i
 		}
 	}
-	return cfg, nil
+	return nil
 }
 
 func prompt(reader *bufio.Reader, out io.Writer, label, current string) (string, error) {
