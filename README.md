@@ -82,7 +82,7 @@ heft work feature/abc
 ```
 
 This creates branch `feature/abc` in `<worktrees_dir>/feature_abc` and a Herdr
-workspace named `heft/feature/abc` rooted there. Set `workspace_prefix` to use a
+workspace named `heft feature/abc` rooted there. Set `workspace_prefix` to use a
 different prefix.
 
 Keep the current workspace focused while opening the new one:

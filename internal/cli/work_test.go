@@ -82,9 +82,9 @@ func TestWorkCreatesBranchFromFetchedBase(t *testing.T) {
 		t.Fatal(err)
 	}
 	wantHerdrCalls := strings.Join([]string{
-		"workspace", "create", "--cwd", filepath.Join(repo, "trees", "feature_abc"), "--label", filepath.Base(repo) + "/feature/abc",
-		"workspace", "create", "--cwd", filepath.Join(repo, "trees", "simple"), "--label", filepath.Base(repo) + "/simple", "--no-focus",
-		"workspace", "create", "--cwd", filepath.Join(repo, "trees", "failed"), "--label", filepath.Base(repo) + "/failed",
+		"workspace", "create", "--cwd", filepath.Join(repo, "trees", "feature_abc"), "--label", filepath.Base(repo) + " feature/abc",
+		"workspace", "create", "--cwd", filepath.Join(repo, "trees", "simple"), "--label", filepath.Base(repo) + " simple", "--no-focus",
+		"workspace", "create", "--cwd", filepath.Join(repo, "trees", "failed"), "--label", filepath.Base(repo) + " failed",
 	}, "\n") + "\n"
 	if string(data) != wantHerdrCalls {
 		t.Fatalf("herdr calls = %q, want %q", data, wantHerdrCalls)
@@ -159,7 +159,7 @@ func TestWorkCreatesConfiguredTabsInOrder(t *testing.T) {
 	}
 	path := filepath.Join(repo, "trees", "feature")
 	want := strings.Join([]string{
-		"workspace", "create", "--cwd", path, "--label", "custom/feature", "--focus",
+		"workspace", "create", "--cwd", path, "--label", "custom feature", "--focus",
 		"tab", "rename", "t1", "codex",
 		"pane", "run", "p1", "codex --model gpt-5",
 		"tab", "create", "--workspace", "w1", "--cwd", path, "--label", "shell", "--no-focus",
@@ -182,7 +182,7 @@ func TestWorkCreatesConfiguredTabsWithoutFocus(t *testing.T) {
 	}
 	path := filepath.Join(repo, "trees", "feature")
 	want := strings.Join([]string{
-		"workspace", "create", "--cwd", path, "--label", filepath.Base(repo) + "/feature", "--no-focus",
+		"workspace", "create", "--cwd", path, "--label", filepath.Base(repo) + " feature", "--no-focus",
 		"tab", "rename", "t1", "shell",
 	}, "\n") + "\n"
 	assertFileContents(t, log, want)

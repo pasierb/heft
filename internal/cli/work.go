@@ -44,7 +44,7 @@ func newWorkCommand() *cobra.Command {
 			}
 
 			branch := args[0]
-			label := prefix + "/" + branch
+			label := prefix + " " + branch
 			if err := validateBranch(cmd, root, branch); err != nil {
 				return err
 			}
