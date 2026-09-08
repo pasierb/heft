@@ -2,3 +2,4 @@
 
 # Fizzy setup
 .fizzy.yaml
+/.worktrees/

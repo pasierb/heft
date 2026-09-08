@@ -79,6 +79,7 @@ func TestInitChecksForHerdr(t *testing.T) {
 		if want := "worktrees_dir: .worktrees\nbase_branch: main\n"; string(data) != want {
 			t.Fatalf("config = %q, want %q", data, want)
 		}
+		assertFileContents(t, filepath.Join(dir, ".gitignore"), "/.worktrees/\n")
 	})
 
 	t.Run("missing", func(t *testing.T) {
@@ -102,6 +103,9 @@ func TestConfigure(t *testing.T) {
 	if err := os.Mkdir(nested, 0o755); err != nil {
 		t.Fatal(err)
 	}
+	if err := os.WriteFile(filepath.Join(dir, ".gitignore"), []byte("/vendor/"), 0o644); err != nil {
+		t.Fatal(err)
+	}
 	t.Chdir(nested)
 
 	stdout, _, err := executeWithInput(t, "trees\ndevelop\n", "configure")
@@ -119,6 +123,7 @@ func TestConfigure(t *testing.T) {
 	if want := "worktrees_dir: trees\nbase_branch: develop\n"; string(data) != want {
 		t.Fatalf("config = %q, want %q", data, want)
 	}
+	assertFileContents(t, filepath.Join(dir, ".gitignore"), "/vendor/\n/trees/\n")
 
 	if _, _, err := executeWithInput(t, "new trees\n\n", "configure"); err != nil {
 		t.Fatalf("reconfigure: %v", err)
@@ -130,6 +135,11 @@ func TestConfigure(t *testing.T) {
 	if want := "worktrees_dir: \"new trees\"\nbase_branch: develop\n"; string(data) != want {
 		t.Fatalf("reconfigured config = %q, want %q", data, want)
 	}
+	assertFileContents(t, filepath.Join(dir, ".gitignore"), "/vendor/\n/trees/\n/new trees/\n")
+	if _, _, err := executeWithInput(t, "\n\n", "configure"); err != nil {
+		t.Fatalf("configure without changes: %v", err)
+	}
+	assertFileContents(t, filepath.Join(dir, ".gitignore"), "/vendor/\n/trees/\n/new trees/\n")
 }
 
 func TestConfigureRejectsInvalidConfig(t *testing.T) {
@@ -165,7 +175,7 @@ func TestInitPreservesExistingConfig(t *testing.T) {
 	t.Chdir(dir)
 	installHerdr(t)
 	path := filepath.Join(dir, ".heft.yaml")
-	original := []byte("leave this alone")
+	original := []byte("worktrees_dir: trees\nbase_branch: main\n")
 	if err := os.WriteFile(path, original, 0o644); err != nil {
 		t.Fatal(err)
 	}
@@ -184,6 +194,7 @@ func TestInitPreservesExistingConfig(t *testing.T) {
 	if !bytes.Equal(data, original) {
 		t.Fatalf("config changed to %q", data)
 	}
+	assertFileContents(t, filepath.Join(dir, ".gitignore"), "/trees/\n")
 }
 
 func TestRootShowsHelp(t *testing.T) {
@@ -334,11 +345,23 @@ func TestWorkStopsWhenFetchFails(t *testing.T) {
 	if _, _, err := execute(t, "work", "feature"); err == nil || !strings.Contains(err.Error(), "fetch base branch") {
 		t.Fatalf("unexpected error: %v", err)
 	}
+	assertFileContents(t, filepath.Join(repo, ".gitignore"), "/.worktrees/\n")
 	if _, err := os.Stat(filepath.Join(repo, ".worktrees", "feature")); !os.IsNotExist(err) {
 		t.Fatalf("worktree should not exist: %v", err)
 	}
 	cmd := exec.Command("git", "-C", repo, "show-ref", "--verify", "--quiet", "refs/heads/feature")
 	if err := cmd.Run(); err == nil {
 		t.Fatal("branch should not exist")
+	}
+}
+
+func assertFileContents(t *testing.T, path, want string) {
+	t.Helper()
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(data) != want {
+		t.Fatalf("%s = %q, want %q", filepath.Base(path), data, want)
 	}
 }

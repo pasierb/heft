@@ -48,6 +48,9 @@ func newWorkCommand() *cobra.Command {
 			if err != nil {
 				return err
 			}
+			if err := ensureWorktreesIgnored(root, cfg.worktreesDir); err != nil {
+				return err
+			}
 
 			branch := args[0]
 			if err := exec.CommandContext(cmd.Context(), "git", "-C", root, "check-ref-format", "--branch", branch).Run(); err != nil {
@@ -93,8 +96,13 @@ func newInitCommand() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			if _, err := os.Stat(filepath.Join(root, ".heft.yaml")); err == nil {
-				return nil
+			configPath := filepath.Join(root, ".heft.yaml")
+			if _, err := os.Stat(configPath); err == nil {
+				cfg, err := readConfig(configPath)
+				if err != nil {
+					return err
+				}
+				return ensureWorktreesIgnored(root, cfg.worktreesDir)
 			} else if !errors.Is(err, os.ErrNotExist) {
 				return err
 			}
@@ -167,6 +175,38 @@ func configure(cmd *cobra.Command, root string) error {
 	}
 	if err := os.Rename(tmpPath, path); err != nil {
 		return fmt.Errorf("replace config: %w", err)
+	}
+	return ensureWorktreesIgnored(root, cfg.worktreesDir)
+}
+
+func ensureWorktreesIgnored(root, dir string) error {
+	path := filepath.Join(root, ".gitignore")
+	data, err := os.ReadFile(path)
+	if err != nil && !errors.Is(err, os.ErrNotExist) {
+		return fmt.Errorf("read .gitignore: %w", err)
+	}
+
+	entry := "/" + strings.Trim(filepath.ToSlash(filepath.Clean(dir)), "/") + "/"
+	for _, line := range strings.Split(string(data), "\n") {
+		if line == entry {
+			return nil
+		}
+	}
+
+	prefix := ""
+	if len(data) > 0 && data[len(data)-1] != '\n' {
+		prefix = "\n"
+	}
+	file, err := os.OpenFile(path, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o644)
+	if err != nil {
+		return fmt.Errorf("open .gitignore: %w", err)
+	}
+	if _, err := fmt.Fprintf(file, "%s%s\n", prefix, entry); err != nil {
+		file.Close()
+		return fmt.Errorf("write .gitignore: %w", err)
+	}
+	if err := file.Close(); err != nil {
+		return fmt.Errorf("write .gitignore: %w", err)
 	}
 	return nil
 }
