@@ -19,11 +19,11 @@ func TestConfigure(t *testing.T) {
 	}
 	t.Chdir(nested)
 
-	stdout, _, err := executeWithInput(t, "trees\ndevelop\n", "configure")
+	stdout, _, err := executeWithInput(t, "trees\ndevelop\n\n2\n", "configure")
 	if err != nil {
 		t.Fatalf("execute configure command: %v", err)
 	}
-	if want := "Worktrees directory [.worktrees]: Base branch [main]: Workspace prefix [" + filepath.Base(dir) + "]: \n"; stdout != want {
+	if want := "Worktrees directory [.worktrees]: Base branch [main]: Workspace prefix [" + filepath.Base(dir) + "]: Default harness:\n  1) Claude\n  2) Codex\n  3) Agy\n  4) Other\nSelect [1-4]: "; stdout != want {
 		t.Fatalf("configure output = %q, want %q", stdout, want)
 	}
 	path := filepath.Join(dir, ".heft.yaml")
@@ -31,7 +31,7 @@ func TestConfigure(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if want := "worktrees_dir: trees\nbase_branch: develop\nworkspace_prefix: \"" + filepath.Base(dir) + "\"\ntabs:\n    - name: shell\n"; string(data) != want {
+	if want := "worktrees_dir: trees\nbase_branch: develop\nworkspace_prefix: \"" + filepath.Base(dir) + "\"\ntabs:\n    - name: codex\n      command: codex\n      agent: true\n    - name: shell\n"; string(data) != want {
 		t.Fatalf("config = %q, want %q", data, want)
 	}
 	assertFileContents(t, filepath.Join(dir, ".gitignore"), "/vendor/\n/trees/\n")
@@ -43,7 +43,7 @@ func TestConfigure(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if want := "worktrees_dir: new trees\nbase_branch: develop\nworkspace_prefix: custom\ntabs:\n    - name: shell\n"; string(data) != want {
+	if want := "worktrees_dir: new trees\nbase_branch: develop\nworkspace_prefix: custom\ntabs:\n    - name: codex\n      command: codex\n      agent: true\n    - name: shell\n"; string(data) != want {
 		t.Fatalf("reconfigured config = %q, want %q", data, want)
 	}
 	assertFileContents(t, filepath.Join(dir, ".gitignore"), "/vendor/\n/trees/\n/new trees/\n")
@@ -51,6 +51,43 @@ func TestConfigure(t *testing.T) {
 		t.Fatalf("configure without changes: %v", err)
 	}
 	assertFileContents(t, filepath.Join(dir, ".gitignore"), "/vendor/\n/trees/\n/new trees/\n")
+}
+
+func TestConfigureHarnessChoices(t *testing.T) {
+	for name, test := range map[string]struct {
+		input string
+		want  string
+	}{
+		"claude": {"1\n", "claude\n      command: claude"},
+		"agy":    {"3\n", "agy\n      command: agy"},
+		"other":  {"nope\n4\n\n/usr/local/bin/my-agent --flag\n", "my-agent\n      command: /usr/local/bin/my-agent --flag"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			dir := gitRepo(t)
+			t.Chdir(dir)
+			if _, _, err := executeWithInput(t, "\n\n\n"+test.input, "configure"); err != nil {
+				t.Fatal(err)
+			}
+			data, err := os.ReadFile(filepath.Join(dir, ".heft.yaml"))
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !strings.Contains(string(data), "    - name: "+test.want+"\n      agent: true\n    - name: shell\n") {
+				t.Fatalf("unexpected config %q", data)
+			}
+		})
+	}
+}
+
+func TestConfigureHarnessRequiresInput(t *testing.T) {
+	dir := gitRepo(t)
+	t.Chdir(dir)
+	if _, _, err := executeWithInput(t, "\n\n\n", "configure"); err == nil || !strings.Contains(err.Error(), "input ended before a valid selection") {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, ".heft.yaml")); !os.IsNotExist(err) {
+		t.Fatalf("config should not exist: %v", err)
+	}
 }
 
 func TestConfigurePreservesTabs(t *testing.T) {

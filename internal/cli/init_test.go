@@ -13,18 +13,18 @@ func TestInitChecksForHerdr(t *testing.T) {
 		t.Chdir(dir)
 		installHerdr(t)
 
-		stdout, _, err := execute(t, "init")
+		stdout, _, err := executeWithInput(t, "\n\n\n2\n", "init")
 		if err != nil {
 			t.Fatalf("execute init command: %v", err)
 		}
-		if want := "herdr is installed\nWorktrees directory [.worktrees]: \nBase branch [main]: \nWorkspace prefix [" + filepath.Base(dir) + "]: \n"; stdout != want {
+		if want := "herdr is installed\nWorktrees directory [.worktrees]: Base branch [main]: Workspace prefix [" + filepath.Base(dir) + "]: Default harness:\n  1) Claude\n  2) Codex\n  3) Agy\n  4) Other\nSelect [1-4]: "; stdout != want {
 			t.Fatalf("init output = %q, want %q", stdout, want)
 		}
 		data, err := os.ReadFile(filepath.Join(dir, ".heft.yaml"))
 		if err != nil {
 			t.Fatal(err)
 		}
-		if want := "worktrees_dir: .worktrees\nbase_branch: main\nworkspace_prefix: \"" + filepath.Base(dir) + "\"\ntabs:\n    - name: shell\n"; string(data) != want {
+		if want := "worktrees_dir: .worktrees\nbase_branch: main\nworkspace_prefix: \"" + filepath.Base(dir) + "\"\ntabs:\n    - name: codex\n      command: codex\n      agent: true\n    - name: shell\n"; string(data) != want {
 			t.Fatalf("config = %q, want %q", data, want)
 		}
 		assertFileContents(t, filepath.Join(dir, ".gitignore"), "/.worktrees/\n")

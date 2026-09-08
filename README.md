@@ -93,17 +93,19 @@ heft work feature/abc --no-focus
 ## Configuration
 
 `heft init` creates `.heft.yaml` at the Git project root and prompts for each
-setting. Run `heft configure` later to change them.
+setting, including a default Claude, Codex, Agy, or custom agent command. Run
+`heft configure` later to change the other settings. The harness prompt is
+skipped once an agent tab is configured.
 
 ```yaml
 worktrees_dir: .worktrees
 base_branch: main
 workspace_prefix: heft
 tabs:
-  - name: shell
   - name: codex
     command: codex
     agent: true
+  - name: shell
 ```
 
 - `worktrees_dir` controls where worktrees are stored. The default is
@@ -116,8 +118,9 @@ tabs:
   make it the target for `--prompt`.
 
 With no `tabs` setting, heft creates one Herdr workspace with its default tab.
-New configuration records the default as `tabs: [{name: shell}]`. Any extra
-tabs open in the background, leaving the first tab focused.
+New configuration puts the selected agent first so it is focused, followed by
+the shell tab. Choosing `Other` stores the entered shell command and names the
+tab after its executable. Any extra tabs open in the background.
 
 `--prompt` requires a configured tab marked with `agent: true` to start a
 Herdr-recognized agent. In the example above, that is `codex`.
