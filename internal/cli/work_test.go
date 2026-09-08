@@ -99,6 +99,21 @@ func TestWorkRequiresOneBranch(t *testing.T) {
 	}
 }
 
+func TestListShowsWorktrees(t *testing.T) {
+	repo := workRepo(t)
+	worktree := filepath.Join(t.TempDir(), "feature")
+	gitRun(t, repo, "worktree", "add", "-qb", "feature", worktree)
+	t.Chdir(worktree)
+
+	stdout, _, err := execute(t, "list")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(stdout, repo) || !strings.Contains(stdout, worktree) || !strings.Contains(stdout, "[feature]") {
+		t.Fatalf("unexpected worktree list: %q", stdout)
+	}
+}
+
 func TestWorkRejectsInvalidBranchBeforeFetch(t *testing.T) {
 	repo := gitRepo(t)
 	t.Chdir(repo)

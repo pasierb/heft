@@ -77,6 +77,21 @@ func newWorkCommand() *cobra.Command {
 	}
 }
 
+func newListCommand() *cobra.Command {
+	return &cobra.Command{
+		Use:   "list",
+		Short: "List worktrees",
+		Args:  cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			root, err := projectRoot()
+			if err != nil {
+				return err
+			}
+			return runGit(cmd, root, "worktree", "list")
+		},
+	}
+}
+
 type herdrCreation struct {
 	Result struct {
 		Workspace struct {

@@ -82,6 +82,12 @@ heft work feature/abc
 This creates branch `feature/abc` in `<worktrees_dir>/feature_abc` and a Herdr
 workspace named `feature/abc` rooted there.
 
+List the repository's worktrees:
+
+```sh
+heft list
+```
+
 Remove a worktree after checking that it has no staged, unstaged, or untracked
 changes:
 

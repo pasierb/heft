@@ -17,7 +17,7 @@ func New(version string) *cobra.Command {
 	}
 
 	root.SetVersionTemplate("heft {{.Version}}\n")
-	root.AddCommand(newInitCommand(), newConfigureCommand(), newWorkCommand(), newCleanupCommand(), newVersionCommand(version))
+	root.AddCommand(newInitCommand(), newConfigureCommand(), newWorkCommand(), newListCommand(), newCleanupCommand(), newVersionCommand(version))
 
 	return root
 }
