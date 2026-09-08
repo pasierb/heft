@@ -1,11 +1,12 @@
 # heft
 
-`heft` is an opinionated, scriptable way to work on several tasks at once with
-Git worktrees and Herdr.
+`heft` helps you work on several tasks at once with Git worktrees and Herdr.
+It gives each task a branch, a worktree, and a Herdr workspace, following one
+consistent workflow that is easy to use from scripts.
 
-Each task gets its own branch, worktree, and Herdr workspace. A single command
-can also start your preferred agent and send it the task, while your current
-workspace stays available for everything else.
+Pass a prompt when you create the worktree and heft will start your agent there.
+Your current workspace stays open, so you can move between tasks without
+shuffling branches or local changes.
 
 ## Requirements
 
@@ -33,9 +34,9 @@ Create a worktree and Herdr workspace for a task:
 heft work feature/abc
 ```
 
-This fetches `origin`, creates `feature/abc` from the configured base branch,
-checks it out at `.worktrees/feature_abc`, and opens a Herdr workspace rooted
-there. If the branch already exists locally or on `origin`, heft reuses it.
+Heft fetches `origin`, creates `feature/abc` from the configured base branch,
+checks it out at `.worktrees/feature_abc`, and opens a Herdr workspace there.
+If the branch already exists locally or on `origin`, heft reuses it.
 
 List the repository's worktrees:
 
@@ -58,23 +59,23 @@ heft prune
 
 ## Scriptable workflows
 
-`heft work` is designed to sit behind small project-specific commands. This
-repository uses the following Make target to start work on a Fizzy card:
+Small project-specific commands can wrap `heft work`. For example, this
+repository has a Make target for starting work on a Fizzy card:
 
 ```sh
 make work-on-fizzy 33
 ```
 
-It runs the equivalent of:
+The target runs the equivalent of:
 
 ```sh
 heft work fizzy-33 --prompt="Check the fizzy card id=33, analyze it and prepare solution plan"
 ```
 
-That creates the worktree and workspace, starts the command configured for the
-first tab, waits for Herdr to recognize it as an agent, and sends the prompt.
-`heft work` returns after Herdr accepts the prompt; it does not wait for the
-agent to finish.
+Heft creates the worktree and workspace, starts the command configured for the
+first tab, waits for Herdr to recognize the agent, then sends the prompt. The
+command returns once Herdr accepts the prompt. The agent continues working in
+its new workspace.
 
 Use `--no-focus` when a script should keep the current workspace focused:
 
@@ -105,9 +106,9 @@ tabs:
 - `tabs` is an ordered list of Herdr tabs. Each tab needs a `name`; an optional
   `command` runs in its root pane.
 
-If `tabs` is omitted or empty, heft creates a single default Herdr workspace.
-New configuration writes that default explicitly as `tabs: [{name: shell}]`.
-Additional tabs open without stealing focus from the first tab.
+With no `tabs` setting, heft creates one Herdr workspace with its default tab.
+New configuration records the default as `tabs: [{name: shell}]`. Any extra
+tabs open in the background, leaving the first tab focused.
 
 `--prompt` requires the first configured tab to start a Herdr-recognized agent.
 In the example above, that is `codex`.
