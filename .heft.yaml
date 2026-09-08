@@ -3,4 +3,5 @@ base_branch: main
 tabs:
     - name: codex
       command: codex -s danger-full-access
+      agent: true
     - name: shell

@@ -29,8 +29,12 @@ func newWorkCommand() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			if prompt != "" && (len(cfg.Tabs) == 0 || cfg.Tabs[0].Command == "") {
-				return fmt.Errorf("--prompt requires the first configured tab to start an agent")
+			hasAgent := false
+			for _, tab := range cfg.Tabs {
+				hasAgent = hasAgent || tab.Agent
+			}
+			if prompt != "" && !hasAgent {
+				return fmt.Errorf("--prompt requires a configured agent tab")
 			}
 			if err := ensureWorktreesIgnored(root, cfg.WorktreesDir); err != nil {
 				return err
@@ -94,7 +98,10 @@ func newWorkCommand() *cobra.Command {
 				}
 			}
 			workspaceID := created.Result.Workspace.WorkspaceID
-			agentPaneID := created.Result.RootPane.PaneID
+			agentPaneID := ""
+			if cfg.Tabs[0].Agent {
+				agentPaneID = created.Result.RootPane.PaneID
+			}
 			for _, tab := range cfg.Tabs[1:] {
 				created, err := createHerdr(cmd, fmt.Sprintf("create herdr tab %q", tab.Name), "tab", "create", "--workspace", workspaceID, "--cwd", path, "--label", tab.Name, "--no-focus")
 				if err != nil {
@@ -108,6 +115,9 @@ func newWorkCommand() *cobra.Command {
 						return err
 					}
 				}
+				if tab.Agent {
+					agentPaneID = created.Result.RootPane.PaneID
+				}
 			}
 			if prompt != "" {
 				return promptAgent(cmd, agentPaneID, prompt)
@@ -115,7 +125,7 @@ func newWorkCommand() *cobra.Command {
 			return nil
 		},
 	}
-	cmd.Flags().StringVar(&prompt, "prompt", "", "prompt the agent in the first configured tab")
+	cmd.Flags().StringVar(&prompt, "prompt", "", "prompt the configured agent tab")
 	cmd.Flags().BoolVar(&noFocus, "no-focus", false, "open the workspace without focusing it")
 	return cmd
 }
@@ -186,19 +196,19 @@ func promptAgent(cmd *cobra.Command, paneID, prompt string) error {
 		if err := probe.Run(); err == nil {
 			break
 		} else if time.Now().After(deadline) {
-			return fmt.Errorf("wait for agent in first herdr tab: %w", err)
+			return fmt.Errorf("wait for agent in configured herdr tab: %w", err)
 		}
 		select {
 		case <-cmd.Context().Done():
-			return fmt.Errorf("wait for agent in first herdr tab: %w", cmd.Context().Err())
+			return fmt.Errorf("wait for agent in configured herdr tab: %w", cmd.Context().Err())
 		case <-time.After(100 * time.Millisecond):
 		}
 	}
 
 	remaining := max(time.Until(deadline).Milliseconds(), 1)
 	var out bytes.Buffer
-	if err := runHerdr(cmd, &out, "wait for agent in first herdr tab", "agent", "wait", paneID, "--timeout", strconv.FormatInt(remaining, 10)); err != nil {
+	if err := runHerdr(cmd, &out, "wait for agent in configured herdr tab", "agent", "wait", paneID, "--timeout", strconv.FormatInt(remaining, 10)); err != nil {
 		return err
 	}
-	return runHerdr(cmd, &out, "prompt agent in first herdr tab", "agent", "prompt", paneID, prompt)
+	return runHerdr(cmd, &out, "prompt agent in configured herdr tab", "agent", "prompt", paneID, prompt)
 }

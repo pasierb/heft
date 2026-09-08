@@ -235,12 +235,12 @@ func TestWorkCreatesConfiguredTabsWithoutFocus(t *testing.T) {
 	assertFileContents(t, log, want)
 }
 
-func TestWorkPromptsAgentInFirstTab(t *testing.T) {
+func TestWorkPromptsConfiguredAgentTab(t *testing.T) {
 	repo := workRepo(t)
 	installHerdrForTabs(t)
 	log := filepath.Join(t.TempDir(), "herdr.log")
 	t.Setenv("HERDR_TEST_LOG", log)
-	if err := os.WriteFile(filepath.Join(repo, ".heft.yaml"), []byte("worktrees_dir: trees\nbase_branch: main\ntabs:\n  - name: codex\n    command: codex\n  - name: shell\n"), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(repo, ".heft.yaml"), []byte("worktrees_dir: trees\nbase_branch: main\ntabs:\n  - name: shell\n  - name: codex\n    command: codex\n    agent: true\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	t.Chdir(repo)
@@ -252,9 +252,9 @@ func TestWorkPromptsAgentInFirstTab(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	wantSuffix := "agent\nget\np1\nagent\nwait\np1\n"
+	wantSuffix := "agent\nget\np2\nagent\nwait\np2\n"
 	got := string(lines)
-	if !strings.Contains(got, wantSuffix+"--timeout\n") || !strings.HasSuffix(got, "agent\nprompt\np1\nfix the failing test\n") {
+	if !strings.Contains(got, wantSuffix+"--timeout\n") || !strings.HasSuffix(got, "agent\nprompt\np2\nfix the failing test\n") {
 		t.Fatalf("unexpected herdr calls: %q", got)
 	}
 }
@@ -264,7 +264,7 @@ func TestWorkPromptRequiresAgentCommand(t *testing.T) {
 	t.Chdir(repo)
 
 	_, _, err := execute(t, "work", "feature", "--prompt", "do the work")
-	if err == nil || err.Error() != "--prompt requires the first configured tab to start an agent" {
+	if err == nil || err.Error() != "--prompt requires a configured agent tab" {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	if _, err := os.Stat(filepath.Join(repo, ".gitignore")); !os.IsNotExist(err) {

@@ -100,9 +100,10 @@ worktrees_dir: .worktrees
 base_branch: main
 workspace_prefix: heft
 tabs:
+  - name: shell
   - name: codex
     command: codex
-  - name: shell
+    agent: true
 ```
 
 - `worktrees_dir` controls where worktrees are stored. The default is
@@ -111,14 +112,15 @@ tabs:
 - `workspace_prefix` prefixes Herdr workspace names. It defaults to the
   repository name, producing names such as `heft feature/abc`.
 - `tabs` is an ordered list of Herdr tabs. Each tab needs a `name`; an optional
-  `command` runs in its root pane.
+  `command` runs in its root pane. Mark one command tab with `agent: true` to
+  make it the target for `--prompt`.
 
 With no `tabs` setting, heft creates one Herdr workspace with its default tab.
 New configuration records the default as `tabs: [{name: shell}]`. Any extra
 tabs open in the background, leaving the first tab focused.
 
-`--prompt` requires the first configured tab to start a Herdr-recognized agent.
-In the example above, that is `codex`.
+`--prompt` requires a configured tab marked with `agent: true` to start a
+Herdr-recognized agent. In the example above, that is `codex`.
 
 ## Commands
 
@@ -127,7 +129,7 @@ In the example above, that is `codex`.
 | `heft init` | Check for Herdr and create the project configuration |
 | `heft configure` | Update the project configuration interactively |
 | `heft work <branch>` | Create or reuse a branch, worktree, and Herdr workspace |
-| `heft work <branch> --prompt <text>` | Start and prompt the agent in the first configured tab |
+| `heft work <branch> --prompt <text>` | Start and prompt the configured agent tab |
 | `heft work <branch> --no-focus` | Keep the current Herdr workspace focused |
 | `heft list` | List the repository's worktrees |
 | `heft cleanup <branch>` | Close its Herdr workspace and remove a clean worktree |
