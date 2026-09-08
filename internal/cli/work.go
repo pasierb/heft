@@ -48,12 +48,24 @@ func newWorkCommand() *cobra.Command {
 			if err := validateBranch(cmd, root, branch); err != nil {
 				return err
 			}
-			if err := runGit(cmd, root, "fetch", "origin", cfg.BaseBranch); err != nil {
+			if err := runGit(cmd, root, "fetch", "origin"); err != nil {
 				return fmt.Errorf("fetch base branch: %w", err)
 			}
 			path := worktreePath(root, cfg.WorktreesDir, branch)
-			if err := runGit(cmd, root, "worktree", "add", "-b", branch, path, "FETCH_HEAD"); err != nil {
+			gitArgs := []string{"worktree", "add", "-b", branch, path, "origin/" + cfg.BaseBranch}
+			existed := ""
+			if gitRefExists(cmd, root, "refs/heads/"+branch) {
+				gitArgs = []string{"worktree", "add", path, branch}
+				existed = "locally"
+			} else if gitRefExists(cmd, root, "refs/remotes/origin/"+branch) {
+				gitArgs = []string{"worktree", "add", "--track", "-b", branch, path, "origin/" + branch}
+				existed = "on origin"
+			}
+			if err := runGit(cmd, root, gitArgs...); err != nil {
 				return fmt.Errorf("create worktree: %w", err)
+			}
+			if existed != "" {
+				fmt.Fprintf(cmd.OutOrStdout(), "Branch %q already exists %s; checking it out.\n", branch, existed)
 			}
 			if len(cfg.Tabs) == 0 {
 				args := []string{"workspace", "create", "--cwd", path, "--label", label}
@@ -106,6 +118,10 @@ func newWorkCommand() *cobra.Command {
 	cmd.Flags().StringVar(&prompt, "prompt", "", "prompt the agent in the first configured tab")
 	cmd.Flags().BoolVar(&noFocus, "no-focus", false, "open the workspace without focusing it")
 	return cmd
+}
+
+func gitRefExists(cmd *cobra.Command, root, ref string) bool {
+	return exec.CommandContext(cmd.Context(), "git", "-C", root, "show-ref", "--verify", "--quiet", ref).Run() == nil
 }
 
 func newListCommand() *cobra.Command {

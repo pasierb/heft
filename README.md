@@ -75,7 +75,8 @@ generated configuration writes that default explicitly as `tabs: [{name: shell}]
 
 ## Worktrees
 
-Create a worktree and branch from the latest configured base branch on `origin`:
+Create a worktree and branch from the latest configured base branch on `origin`,
+or reuse the branch when it already exists locally or on `origin`:
 
 ```sh
 heft work feature/abc
