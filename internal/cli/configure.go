@@ -23,6 +23,7 @@ type config struct {
 type tab struct {
 	Name    string `yaml:"name"`
 	Command string `yaml:"command,omitempty"`
+	Agent   bool   `yaml:"agent,omitempty"`
 }
 
 func newConfigureCommand() *cobra.Command {
@@ -144,9 +145,19 @@ func readConfig(path string) (config, error) {
 	if cfg.WorktreesDir == "" || cfg.BaseBranch == "" {
 		return config{}, fmt.Errorf("config must contain worktrees_dir and base_branch")
 	}
+	agentTab := -1
 	for i, tab := range cfg.Tabs {
 		if strings.TrimSpace(tab.Name) == "" {
 			return config{}, fmt.Errorf("tabs[%d].name must not be empty", i)
+		}
+		if tab.Agent {
+			if agentTab >= 0 {
+				return config{}, fmt.Errorf("tabs[%d].agent: only one agent tab may be configured", i)
+			}
+			if strings.TrimSpace(tab.Command) == "" {
+				return config{}, fmt.Errorf("tabs[%d].agent requires command", i)
+			}
+			agentTab = i
 		}
 	}
 	return cfg, nil

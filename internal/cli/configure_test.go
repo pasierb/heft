@@ -57,23 +57,25 @@ func TestConfigurePreservesTabs(t *testing.T) {
 	dir := gitRepo(t)
 	t.Chdir(dir)
 	path := filepath.Join(dir, ".heft.yaml")
-	if err := os.WriteFile(path, []byte("worktrees_dir: trees\nbase_branch: main\ntabs:\n  - name: codex\n    command: codex --dangerously-bypass-approvals-and-sandbox\n  - name: shell\n"), 0o644); err != nil {
+	if err := os.WriteFile(path, []byte("worktrees_dir: trees\nbase_branch: main\ntabs:\n  - name: codex\n    command: codex --dangerously-bypass-approvals-and-sandbox\n    agent: true\n  - name: shell\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 
 	if _, _, err := executeWithInput(t, "\n\n", "configure"); err != nil {
 		t.Fatal(err)
 	}
-	assertFileContents(t, path, "worktrees_dir: trees\nbase_branch: main\nworkspace_prefix: \""+filepath.Base(dir)+"\"\ntabs:\n    - name: codex\n      command: codex --dangerously-bypass-approvals-and-sandbox\n    - name: shell\n")
+	assertFileContents(t, path, "worktrees_dir: trees\nbase_branch: main\nworkspace_prefix: \""+filepath.Base(dir)+"\"\ntabs:\n    - name: codex\n      command: codex --dangerously-bypass-approvals-and-sandbox\n      agent: true\n    - name: shell\n")
 }
 
 func TestReadConfigRejectsInvalidTabs(t *testing.T) {
 	for name, contents := range map[string]string{
-		"malformed":     "worktrees_dir: trees\nbase_branch: main\ntabs: nope\n",
-		"empty name":    "worktrees_dir: trees\nbase_branch: main\ntabs:\n  - name: '  '\n",
-		"unknown field": "worktrees_dir: trees\nbase_branch: main\ntabs:\n  - name: shell\n    extra: value\n",
-		"missing base":  "worktrees_dir: trees\ntabs: []\n",
-		"multiple docs": "worktrees_dir: trees\nbase_branch: main\n---\nworktrees_dir: other\n",
+		"malformed":             "worktrees_dir: trees\nbase_branch: main\ntabs: nope\n",
+		"empty name":            "worktrees_dir: trees\nbase_branch: main\ntabs:\n  - name: '  '\n",
+		"unknown field":         "worktrees_dir: trees\nbase_branch: main\ntabs:\n  - name: shell\n    extra: value\n",
+		"missing base":          "worktrees_dir: trees\ntabs: []\n",
+		"multiple docs":         "worktrees_dir: trees\nbase_branch: main\n---\nworktrees_dir: other\n",
+		"agent without command": "worktrees_dir: trees\nbase_branch: main\ntabs:\n  - name: codex\n    agent: true\n",
+		"multiple agents":       "worktrees_dir: trees\nbase_branch: main\ntabs:\n  - name: one\n    command: codex\n    agent: true\n  - name: two\n    command: claude\n    agent: true\n",
 	} {
 		t.Run(name, func(t *testing.T) {
 			path := filepath.Join(t.TempDir(), ".heft.yaml")
