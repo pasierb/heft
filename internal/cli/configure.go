@@ -63,6 +63,13 @@ func configure(cmd *cobra.Command, root string) error {
 		return err
 	}
 	cfg.WorkspacePrefix = strings.TrimSpace(cfg.WorkspacePrefix)
+	if !hasAgentTab(cfg.Tabs) {
+		agent, err := promptHarness(reader, cmd.OutOrStdout())
+		if err != nil {
+			return err
+		}
+		cfg.Tabs = append([]tab{agent}, cfg.Tabs...)
+	}
 	tmp, err := os.CreateTemp(root, ".heft.yaml-*")
 	if err != nil {
 		return fmt.Errorf("create config: %w", err)
@@ -89,6 +96,65 @@ func configure(cmd *cobra.Command, root string) error {
 		return fmt.Errorf("replace config: %w", err)
 	}
 	return ensureWorktreesIgnored(root, cfg.WorktreesDir)
+}
+
+func hasAgentTab(tabs []tab) bool {
+	for _, tab := range tabs {
+		if tab.Agent {
+			return true
+		}
+	}
+	return false
+}
+
+func promptHarness(reader *bufio.Reader, out io.Writer) (tab, error) {
+	if _, err := fmt.Fprintln(out, "Default harness:\n  1) Claude\n  2) Codex\n  3) Agy\n  4) Other"); err != nil {
+		return tab{}, err
+	}
+	for {
+		if _, err := fmt.Fprint(out, "Select [1-4]: "); err != nil {
+			return tab{}, err
+		}
+		answer, err := reader.ReadString('\n')
+		if err != nil && !errors.Is(err, io.EOF) {
+			return tab{}, err
+		}
+		switch strings.TrimSpace(answer) {
+		case "1":
+			return tab{Name: "claude", Command: "claude", Agent: true}, nil
+		case "2":
+			return tab{Name: "codex", Command: "codex", Agent: true}, nil
+		case "3":
+			return tab{Name: "agy", Command: "agy", Agent: true}, nil
+		case "4":
+			command, err := promptRequired(reader, out, "Harness command")
+			if err != nil {
+				return tab{}, err
+			}
+			return tab{Name: filepath.Base(strings.Fields(command)[0]), Command: command, Agent: true}, nil
+		}
+		if errors.Is(err, io.EOF) {
+			return tab{}, fmt.Errorf("configure default harness: input ended before a valid selection")
+		}
+	}
+}
+
+func promptRequired(reader *bufio.Reader, out io.Writer, label string) (string, error) {
+	for {
+		if _, err := fmt.Fprintf(out, "%s: ", label); err != nil {
+			return "", err
+		}
+		answer, err := reader.ReadString('\n')
+		if err != nil && !errors.Is(err, io.EOF) {
+			return "", err
+		}
+		if answer = strings.TrimSpace(answer); answer != "" {
+			return answer, nil
+		}
+		if errors.Is(err, io.EOF) {
+			return "", fmt.Errorf("configure default harness: input ended before a command was provided")
+		}
+	}
 }
 
 func ensureWorktreesIgnored(root, dir string) error {
