@@ -82,6 +82,12 @@ heft work feature/abc
 This creates branch `feature/abc` in `<worktrees_dir>/feature_abc` and a Herdr
 workspace named `feature/abc` rooted there.
 
+Keep the current workspace focused while opening the new one:
+
+```sh
+heft work feature/abc --no-focus
+```
+
 To start work immediately, pass a prompt to the Herdr-recognized agent started
 by the first configured tab:
 

@@ -60,7 +60,7 @@ func TestWorkCreatesBranchFromFetchedBase(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(repo, ".heft.yaml"), []byte("worktrees_dir: trees\nbase_branch: main\ntabs: []\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if _, _, err := execute(t, "work", "simple"); err != nil {
+	if _, _, err := execute(t, "work", "simple", "--no-focus"); err != nil {
 		t.Fatalf("create simple worktree: %v", err)
 	}
 	if got := gitRun(t, filepath.Join(repo, "trees", "simple"), "branch", "--show-current"); got != "simple" {
@@ -83,7 +83,7 @@ func TestWorkCreatesBranchFromFetchedBase(t *testing.T) {
 	}
 	wantHerdrCalls := strings.Join([]string{
 		"workspace", "create", "--cwd", filepath.Join(repo, "trees", "feature_abc"), "--label", "feature/abc",
-		"workspace", "create", "--cwd", filepath.Join(repo, "trees", "simple"), "--label", "simple",
+		"workspace", "create", "--cwd", filepath.Join(repo, "trees", "simple"), "--label", "simple", "--no-focus",
 		"workspace", "create", "--cwd", filepath.Join(repo, "trees", "failed"), "--label", "failed",
 	}, "\n") + "\n"
 	if string(data) != wantHerdrCalls {
@@ -163,6 +163,27 @@ func TestWorkCreatesConfiguredTabsInOrder(t *testing.T) {
 		"tab", "rename", "t1", "codex",
 		"pane", "run", "p1", "codex --model gpt-5",
 		"tab", "create", "--workspace", "w1", "--cwd", path, "--label", "shell", "--no-focus",
+	}, "\n") + "\n"
+	assertFileContents(t, log, want)
+}
+
+func TestWorkCreatesConfiguredTabsWithoutFocus(t *testing.T) {
+	repo := workRepo(t)
+	installHerdrForTabs(t)
+	log := filepath.Join(t.TempDir(), "herdr.log")
+	t.Setenv("HERDR_TEST_LOG", log)
+	if err := os.WriteFile(filepath.Join(repo, ".heft.yaml"), []byte("worktrees_dir: trees\nbase_branch: main\ntabs:\n  - name: shell\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	t.Chdir(repo)
+
+	if _, _, err := execute(t, "work", "feature", "--no-focus"); err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(repo, "trees", "feature")
+	want := strings.Join([]string{
+		"workspace", "create", "--cwd", path, "--label", "feature", "--no-focus",
+		"tab", "rename", "t1", "shell",
 	}, "\n") + "\n"
 	assertFileContents(t, log, want)
 }

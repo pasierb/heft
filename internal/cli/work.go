@@ -14,6 +14,7 @@ import (
 
 func newWorkCommand() *cobra.Command {
 	var prompt string
+	var noFocus bool
 	cmd := &cobra.Command{
 		Use:   "work <branch>",
 		Short: "Create a worktree",
@@ -46,9 +47,17 @@ func newWorkCommand() *cobra.Command {
 				return fmt.Errorf("create worktree: %w", err)
 			}
 			if len(cfg.Tabs) == 0 {
-				return runHerdr(cmd, nil, "create herdr workspace", "workspace", "create", "--cwd", path, "--label", branch)
+				args := []string{"workspace", "create", "--cwd", path, "--label", branch}
+				if noFocus {
+					args = append(args, "--no-focus")
+				}
+				return runHerdr(cmd, nil, "create herdr workspace", args...)
 			}
-			created, err := createHerdr(cmd, "create herdr workspace", "workspace", "create", "--cwd", path, "--label", branch, "--focus")
+			focus := "--focus"
+			if noFocus {
+				focus = "--no-focus"
+			}
+			created, err := createHerdr(cmd, "create herdr workspace", "workspace", "create", "--cwd", path, "--label", branch, focus)
 			if err != nil {
 				return err
 			}
@@ -86,6 +95,7 @@ func newWorkCommand() *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVar(&prompt, "prompt", "", "prompt the agent in the first configured tab")
+	cmd.Flags().BoolVar(&noFocus, "no-focus", false, "open the workspace without focusing it")
 	return cmd
 }
 
