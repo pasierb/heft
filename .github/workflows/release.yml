@@ -1,0 +1,61 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+          cache: true
+      - name: Test
+        run: go test ./...
+      - name: Build release assets
+        env:
+          VERSION: ${{ github.ref_name }}
+        run: |
+          if [[ ! "$VERSION" =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-[0-9A-Za-z]+([.-][0-9A-Za-z]+)*)?$ ]]; then
+            echo "Invalid release tag: $VERSION" >&2
+            exit 1
+          fi
+          prerelease="${VERSION#*-}"
+          if [[ "$prerelease" != "$VERSION" ]]; then
+            IFS=. read -ra identifiers <<< "$prerelease"
+            for identifier in "${identifiers[@]}"; do
+              if [[ "$identifier" =~ ^[0-9]+$ && "$identifier" != "0" && "$identifier" == 0* ]]; then
+                echo "Invalid numeric prerelease identifier: $identifier" >&2
+                exit 1
+              fi
+            done
+          fi
+
+          mkdir dist
+          for arch in amd64 arm64; do
+            archive="heft_${VERSION}_linux_${arch}.tar.gz"
+            mkdir "dist/$arch"
+            CGO_ENABLED=0 GOOS=linux GOARCH="$arch" go build \
+              -trimpath -ldflags "-s -w -X main.version=$VERSION" \
+              -o "dist/$arch/heft" ./cmd/heft
+            tar -C "dist/$arch" -czf "dist/$archive" heft
+          done
+          cd dist
+          sha256sum ./*.tar.gz > SHA256SUMS
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ github.ref_name }}
+        run: |
+          args=(--verify-tag --generate-notes --fail-on-no-commits)
+          if [[ "$VERSION" == *-* ]]; then
+            args+=(--prerelease --latest=false)
+          fi
+          gh release create "$VERSION" dist/*.tar.gz dist/SHA256SUMS "${args[@]}"
