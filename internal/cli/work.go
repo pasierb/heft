@@ -16,6 +16,7 @@ import (
 func newWorkCommand() *cobra.Command {
 	var prompt string
 	var noFocus bool
+	var label string
 	cmd := &cobra.Command{
 		Use:   "work <branch>",
 		Short: "Create a worktree",
@@ -39,16 +40,17 @@ func newWorkCommand() *cobra.Command {
 			if err := ensureWorktreesIgnored(root, cfg.WorktreesDir); err != nil {
 				return err
 			}
-			prefix := strings.TrimSpace(cfg.WorkspacePrefix)
-			if prefix == "" {
-				prefix, err = repositoryName(root)
-				if err != nil {
-					return err
-				}
-			}
-
 			branch := args[0]
-			label := prefix + " " + branch
+			if label == "" {
+				prefix := strings.TrimSpace(cfg.WorkspacePrefix)
+				if prefix == "" {
+					prefix, err = repositoryName(root)
+					if err != nil {
+						return err
+					}
+				}
+				label = prefix + " " + branch
+			}
 			if err := validateBranch(cmd, root, branch); err != nil {
 				return err
 			}
@@ -127,6 +129,7 @@ func newWorkCommand() *cobra.Command {
 	}
 	cmd.Flags().StringVar(&prompt, "prompt", "", "prompt the configured agent tab")
 	cmd.Flags().BoolVar(&noFocus, "no-focus", false, "open the workspace without focusing it")
+	cmd.Flags().StringVar(&label, "label", "", "set the Herdr workspace label")
 	return cmd
 }
 

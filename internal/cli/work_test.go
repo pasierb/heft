@@ -201,12 +201,12 @@ func TestWorkCreatesConfiguredTabsInOrder(t *testing.T) {
 	}
 	t.Chdir(repo)
 
-	if _, _, err := execute(t, "work", "feature"); err != nil {
+	if _, _, err := execute(t, "work", "feature", "--label", "ticket 39"); err != nil {
 		t.Fatal(err)
 	}
 	path := filepath.Join(repo, "trees", "feature")
 	want := strings.Join([]string{
-		"workspace", "create", "--cwd", path, "--label", "custom feature", "--focus",
+		"workspace", "create", "--cwd", path, "--label", "ticket 39", "--focus",
 		"tab", "rename", "t1", "codex",
 		"pane", "run", "p1", "codex --model gpt-5",
 		"tab", "create", "--workspace", "w1", "--cwd", path, "--label", "shell", "--no-focus",
