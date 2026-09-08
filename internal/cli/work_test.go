@@ -196,7 +196,7 @@ func TestWorkCreatesConfiguredTabsInOrder(t *testing.T) {
 	installHerdrForTabs(t)
 	log := filepath.Join(t.TempDir(), "herdr.log")
 	t.Setenv("HERDR_TEST_LOG", log)
-	if err := os.WriteFile(filepath.Join(repo, ".heft.yaml"), []byte("worktrees_dir: trees\nbase_branch: main\nworkspace_prefix: custom\ntabs:\n  - name: codex\n    command: codex --model gpt-5\n  - name: shell\n"), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(repo, ".heft.yaml"), []byte("worktrees_dir: trees\nbase_branch: main\nworkspace_prefix: custom\ntabs:\n  - name: codex\n    command: codex --model gpt-5\n  - name: shell\nprofiles:\n  other:\n    tabs:\n      - name: ignored\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	t.Chdir(repo)
@@ -212,6 +212,43 @@ func TestWorkCreatesConfiguredTabsInOrder(t *testing.T) {
 		"tab", "create", "--workspace", "w1", "--cwd", path, "--label", "shell", "--no-focus",
 	}, "\n") + "\n"
 	assertFileContents(t, log, want)
+}
+
+func TestWorkCreatesProfileTabs(t *testing.T) {
+	repo := workRepo(t)
+	installHerdrForTabs(t)
+	log := filepath.Join(t.TempDir(), "herdr.log")
+	t.Setenv("HERDR_TEST_LOG", log)
+	if err := os.WriteFile(filepath.Join(repo, ".heft.yaml"), []byte("worktrees_dir: trees\nbase_branch: main\ntabs:\n  - name: shell\nprofiles:\n  research:\n    tabs:\n      - name: codex\n        command: codex --model gpt-5\n      - name: notes\n        command: nvim\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	t.Chdir(repo)
+
+	if _, _, err := execute(t, "work", "feature", "--profile", "research"); err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(repo, "trees", "feature")
+	want := strings.Join([]string{
+		"workspace", "create", "--cwd", path, "--label", filepath.Base(repo) + " feature", "--focus",
+		"tab", "rename", "t1", "codex",
+		"pane", "run", "p1", "codex --model gpt-5",
+		"tab", "create", "--workspace", "w1", "--cwd", path, "--label", "notes", "--no-focus",
+		"pane", "run", "p2", "nvim",
+	}, "\n") + "\n"
+	assertFileContents(t, log, want)
+}
+
+func TestWorkRejectsUnknownProfileBeforeSideEffects(t *testing.T) {
+	repo := workRepo(t)
+	t.Chdir(repo)
+
+	_, _, err := execute(t, "work", "feature", "--profile", "missing")
+	if err == nil || err.Error() != `profile "missing" is not configured` {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(repo, ".gitignore")); !os.IsNotExist(err) {
+		t.Fatalf("gitignore should not exist: %v", err)
+	}
 }
 
 func TestWorkCreatesConfiguredTabsWithoutFocus(t *testing.T) {
@@ -240,12 +277,12 @@ func TestWorkPromptsConfiguredAgentTab(t *testing.T) {
 	installHerdrForTabs(t)
 	log := filepath.Join(t.TempDir(), "herdr.log")
 	t.Setenv("HERDR_TEST_LOG", log)
-	if err := os.WriteFile(filepath.Join(repo, ".heft.yaml"), []byte("worktrees_dir: trees\nbase_branch: main\ntabs:\n  - name: shell\n  - name: codex\n    command: codex\n    agent: true\n"), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(repo, ".heft.yaml"), []byte("worktrees_dir: trees\nbase_branch: main\ntabs:\n  - name: shell\nprofiles:\n  research:\n    tabs:\n      - name: shell\n      - name: codex\n        command: codex\n        agent: true\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	t.Chdir(repo)
 
-	if _, _, err := execute(t, "work", "feature", "--prompt", "fix the failing test"); err != nil {
+	if _, _, err := execute(t, "work", "feature", "--profile", "research", "--prompt", "fix the failing test"); err != nil {
 		t.Fatal(err)
 	}
 	lines, err := os.ReadFile(log)

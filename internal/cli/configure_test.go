@@ -153,6 +153,7 @@ func TestReadConfigRejectsInvalidTabs(t *testing.T) {
 		"multiple docs":         "worktrees_dir: trees\nbase_branch: main\n---\nworktrees_dir: other\n",
 		"agent without command": "worktrees_dir: trees\nbase_branch: main\ntabs:\n  - name: codex\n    agent: true\n",
 		"multiple agents":       "worktrees_dir: trees\nbase_branch: main\ntabs:\n  - name: one\n    command: codex\n    agent: true\n  - name: two\n    command: claude\n    agent: true\n",
+		"invalid profile tabs":  "worktrees_dir: trees\nbase_branch: main\nprofiles:\n  research:\n    tabs:\n      - name: ''\n",
 	} {
 		t.Run(name, func(t *testing.T) {
 			path := filepath.Join(t.TempDir(), ".heft.yaml")
