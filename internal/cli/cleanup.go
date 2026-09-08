@@ -86,7 +86,9 @@ func removeWorktree(cmd *cobra.Command, root, path string) error {
 		return err
 	}
 	if workspaceID != "" {
-		return runHerdr(cmd, nil, "remove herdr worktree", "worktree", "remove", "--workspace", workspaceID)
+		if err := runHerdr(cmd, nil, "close herdr workspace", "workspace", "close", workspaceID); err != nil {
+			return err
+		}
 	}
 	if err := runGit(cmd, root, "worktree", "remove", path); err != nil {
 		return fmt.Errorf("remove worktree: %w", err)

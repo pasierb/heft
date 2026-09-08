@@ -29,9 +29,12 @@ func TestCleanupClosesHerdrWorkspace(t *testing.T) {
 	if _, _, err := execute(t, "cleanup", "feature"); err != nil {
 		t.Fatal(err)
 	}
+	if _, err := os.Stat(worktree); !os.IsNotExist(err) {
+		t.Fatalf("worktree should not exist: %v", err)
+	}
 	assertFileContents(t, herdrLog, strings.Join([]string{
 		"worktree", "list", "--cwd", repo,
-		"worktree", "remove", "--workspace", "w1",
+		"workspace", "close", "w1",
 	}, "\n")+"\n")
 }
 
@@ -50,7 +53,7 @@ func TestPruneClosesHerdrWorkspaces(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, call := range []string{"worktree\nremove\n--workspace\nw1\n", "worktree\nremove\n--workspace\nw2\n"} {
+	for _, call := range []string{"workspace\nclose\nw1\n", "workspace\nclose\nw2\n"} {
 		if !strings.Contains(string(log), call) {
 			t.Fatalf("missing Herdr call %q in %q", call, log)
 		}
