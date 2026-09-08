@@ -15,6 +15,7 @@ import (
 
 func newWorkCommand() *cobra.Command {
 	var prompt string
+	var profileName string
 	var noFocus bool
 	cmd := &cobra.Command{
 		Use:   "work <branch>",
@@ -28,6 +29,13 @@ func newWorkCommand() *cobra.Command {
 			cfg, err := readConfig(filepath.Join(root, ".heft.yaml"))
 			if err != nil {
 				return err
+			}
+			if profileName != "" {
+				profile, ok := cfg.Profiles[profileName]
+				if !ok {
+					return fmt.Errorf("profile %q is not configured", profileName)
+				}
+				cfg.Tabs = profile.Tabs
 			}
 			hasAgent := false
 			for _, tab := range cfg.Tabs {
@@ -126,6 +134,7 @@ func newWorkCommand() *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVar(&prompt, "prompt", "", "prompt the configured agent tab")
+	cmd.Flags().StringVar(&profileName, "profile", "", "use tabs from the named profile")
 	cmd.Flags().BoolVar(&noFocus, "no-focus", false, "open the workspace without focusing it")
 	return cmd
 }

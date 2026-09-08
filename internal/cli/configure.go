@@ -14,11 +14,17 @@ import (
 )
 
 type config struct {
-	WorktreesDir    string         `yaml:"worktrees_dir"`
-	BaseBranch      string         `yaml:"base_branch"`
-	WorkspacePrefix string         `yaml:"workspace_prefix,omitempty"`
-	Tabs            []tab          `yaml:"tabs,omitempty"`
-	Extra           map[string]any `yaml:",inline"`
+	WorktreesDir    string             `yaml:"worktrees_dir"`
+	BaseBranch      string             `yaml:"base_branch"`
+	WorkspacePrefix string             `yaml:"workspace_prefix,omitempty"`
+	Tabs            []tab              `yaml:"tabs,omitempty"`
+	Profiles        map[string]profile `yaml:"profiles,omitempty"`
+	Extra           map[string]any     `yaml:",inline"`
+}
+
+type profile struct {
+	Tabs  []tab          `yaml:"tabs,omitempty"`
+	Extra map[string]any `yaml:",inline"`
 }
 
 type tab struct {
@@ -236,17 +242,32 @@ func validateConfig(cfg config) error {
 	if cfg.WorktreesDir == "" || cfg.BaseBranch == "" {
 		return fmt.Errorf("config must contain worktrees_dir and base_branch; run heft configure")
 	}
+	if err := validateTabs("tabs", cfg.Tabs); err != nil {
+		return err
+	}
+	for name, profile := range cfg.Profiles {
+		if strings.TrimSpace(name) == "" {
+			return fmt.Errorf("profiles must not contain an empty name")
+		}
+		if err := validateTabs(fmt.Sprintf("profiles[%q].tabs", name), profile.Tabs); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func validateTabs(path string, tabs []tab) error {
 	agentTab := -1
-	for i, tab := range cfg.Tabs {
+	for i, tab := range tabs {
 		if strings.TrimSpace(tab.Name) == "" {
-			return fmt.Errorf("tabs[%d].name must not be empty", i)
+			return fmt.Errorf("%s[%d].name must not be empty", path, i)
 		}
 		if tab.Agent {
 			if agentTab >= 0 {
-				return fmt.Errorf("tabs[%d].agent: only one agent tab may be configured", i)
+				return fmt.Errorf("%s[%d].agent: only one agent tab may be configured", path, i)
 			}
 			if strings.TrimSpace(tab.Command) == "" {
-				return fmt.Errorf("tabs[%d].agent requires command", i)
+				return fmt.Errorf("%s[%d].agent requires command", path, i)
 			}
 			agentTab = i
 		}

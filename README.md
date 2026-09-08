@@ -106,6 +106,14 @@ tabs:
     command: codex
     agent: true
   - name: shell
+profiles:
+  research:
+    tabs:
+      - name: codex
+        command: codex --model gpt-5
+        agent: true
+      - name: notes
+        command: nvim
 ```
 
 - `worktrees_dir` controls where worktrees are stored. The default is
@@ -116,6 +124,8 @@ tabs:
 - `tabs` is an ordered list of Herdr tabs. Each tab needs a `name`; an optional
   `command` runs in its root pane. Mark one command tab with `agent: true` to
   make it the target for `--prompt`.
+- `profiles` contains named alternative tab configurations. Select one with
+  `heft work <branch> --profile <name>`; without the flag, heft uses `tabs`.
 
 With no `tabs` setting, heft creates one Herdr workspace with its default tab.
 New configuration puts the selected agent first so it is focused, followed by
