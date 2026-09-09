@@ -1,3 +1,5 @@
+![heft logo](assets/logo.svg)
+
 # heft
 
 `heft` helps you work on several tasks at once with Git worktrees and Herdr.
@@ -7,6 +9,8 @@ consistent workflow that is easy to use from scripts.
 Pass a prompt when you create the worktree and heft will start your agent there.
 Your current workspace stays open, so you can move between tasks without
 shuffling branches or local changes.
+
+![Several hefts grazing across shared hills](assets/heft-concept.jpg)
 
 ## Requirements
 
