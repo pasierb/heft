@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 
@@ -180,17 +181,20 @@ func promptRequired(reader *bufio.Reader, out io.Writer, label string) (string, 
 }
 
 func ensureWorktreesIgnored(root, dir string) error {
+	if err := exec.Command("git", "-C", root, "check-ignore", "-q", "--", filepath.ToSlash(filepath.Clean(dir))+"/").Run(); err == nil {
+		return nil
+	} else {
+		var exitErr *exec.ExitError
+		if !errors.As(err, &exitErr) || exitErr.ExitCode() != 1 {
+			return fmt.Errorf("check worktrees ignored: %w", err)
+		}
+	}
 	path := filepath.Join(root, ".gitignore")
 	data, err := os.ReadFile(path)
 	if err != nil && !errors.Is(err, os.ErrNotExist) {
 		return fmt.Errorf("read .gitignore: %w", err)
 	}
 	entry := "/" + strings.Trim(filepath.ToSlash(filepath.Clean(dir)), "/") + "/"
-	for _, line := range strings.Split(string(data), "\n") {
-		if line == entry {
-			return nil
-		}
-	}
 	prefix := ""
 	if len(data) > 0 && data[len(data)-1] != '\n' {
 		prefix = "\n"

@@ -4,8 +4,10 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -25,7 +27,8 @@ func newWorkCommand() *cobra.Command {
 and open a matching Herdr workspace.
 
 New branches start from origin/<base_branch>. Existing local or remote branches
-are reused. Use --prompt to send work directly to a configured agent tab.`,
+and matching worktrees at the configured path are reused. Each invocation opens
+a new workspace. Use --prompt to send work directly to a configured agent tab.`,
 		Example: `  heft work feature/login
   heft work fizzy-40 --prompt "Analyze card 40 and implement it"
   heft work bugfix/session --profile research --no-focus`,
@@ -74,20 +77,44 @@ are reused. Use --prompt to send work directly to a configured agent tab.`,
 				return fmt.Errorf("fetch base branch: %w", err)
 			}
 			path := worktreePath(root, cfg.WorktreesDir, branch)
-			gitArgs := []string{"worktree", "add", "-b", branch, path, "origin/" + cfg.BaseBranch}
-			existed := ""
-			if gitRefExists(cmd, root, "refs/heads/"+branch) {
-				gitArgs = []string{"worktree", "add", path, branch}
-				existed = "locally"
-			} else if gitRefExists(cmd, root, "refs/remotes/origin/"+branch) {
-				gitArgs = []string{"worktree", "add", "--track", "-b", branch, path, "origin/" + branch}
-				existed = "on origin"
+			git := exec.CommandContext(cmd.Context(), "git", "-C", root, "worktree", "list", "--porcelain", "-z")
+			git.Stderr = cmd.ErrOrStderr()
+			out, err := git.Output()
+			if err != nil {
+				return fmt.Errorf("list worktrees: %w", err)
 			}
-			if err := runGit(cmd, root, gitArgs...); err != nil {
-				return fmt.Errorf("create worktree: %w", err)
+			reused := false
+			for _, record := range strings.Split(string(out), "\x00\x00") {
+				if !strings.HasPrefix(record, "worktree "+path+"\x00") {
+					continue
+				}
+				if !slices.Contains(strings.Split(record, "\x00"), "branch refs/heads/"+branch) {
+					return fmt.Errorf("worktree at %s is not on branch %q", path, branch)
+				}
+				if _, err := os.Stat(filepath.Join(path, ".git")); err != nil {
+					return fmt.Errorf("check existing worktree at %s: %w", path, err)
+				}
+				reused = true
+				break
 			}
-			if existed != "" {
-				fmt.Fprintf(cmd.OutOrStdout(), "Branch %q already exists %s; checking it out.\n", branch, existed)
+			if reused {
+				fmt.Fprintf(cmd.OutOrStdout(), "Reusing worktree at %s.\n", path)
+			} else {
+				gitArgs := []string{"worktree", "add", "-b", branch, path, "origin/" + cfg.BaseBranch}
+				existed := ""
+				if gitRefExists(cmd, root, "refs/heads/"+branch) {
+					gitArgs = []string{"worktree", "add", path, branch}
+					existed = "locally"
+				} else if gitRefExists(cmd, root, "refs/remotes/origin/"+branch) {
+					gitArgs = []string{"worktree", "add", "--track", "-b", branch, path, "origin/" + branch}
+					existed = "on origin"
+				}
+				if err := runGit(cmd, root, gitArgs...); err != nil {
+					return fmt.Errorf("create worktree: %w", err)
+				}
+				if existed != "" {
+					fmt.Fprintf(cmd.OutOrStdout(), "Branch %q already exists %s; checking it out.\n", branch, existed)
+				}
 			}
 			if len(cfg.Tabs) == 0 {
 				args := []string{"workspace", "create", "--cwd", path, "--label", label}

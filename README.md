@@ -58,6 +58,9 @@ heft work feature/abc
 Heft fetches `origin`, creates `feature/abc` from the configured base branch,
 checks it out at `.worktrees/feature_abc`, and opens a Herdr workspace there.
 If the branch already exists locally or on `origin`, heft reuses it.
+If its worktree already exists at the configured path, heft reuses it without
+changing its files or commits. Each invocation opens a new Herdr workspace and
+runs the configured tabs and any supplied prompt.
 Use `--label` to override the workspace label derived from the configured prefix
 and branch name:
 

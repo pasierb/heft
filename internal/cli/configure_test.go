@@ -194,3 +194,25 @@ func TestConfigureOutsideGitRepository(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 }
+
+func TestEnsureWorktreesIgnoredRespectsGitRules(t *testing.T) {
+	for _, source := range []string{".git/info/exclude", ".gitignore"} {
+		t.Run(source, func(t *testing.T) {
+			repo := gitRepo(t)
+			if err := os.WriteFile(filepath.Join(repo, source), []byte("/trees*/\n"), 0o644); err != nil {
+				t.Fatal(err)
+			}
+			if err := ensureWorktreesIgnored(repo, "trees"); err != nil {
+				t.Fatal(err)
+			}
+			if source == ".gitignore" {
+				assertFileContents(t, filepath.Join(repo, ".gitignore"), "/trees*/\n")
+			} else if _, err := os.Stat(filepath.Join(repo, ".gitignore")); !os.IsNotExist(err) {
+				t.Fatalf(".gitignore should not be created: %v", err)
+			}
+		})
+	}
+	if err := ensureWorktreesIgnored(t.TempDir(), "trees"); err == nil {
+		t.Fatal("expected error outside a Git repository")
+	}
+}
