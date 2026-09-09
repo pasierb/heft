@@ -29,6 +29,16 @@ To build and install from source instead:
 make install
 ```
 
+### Agent skill
+
+Install the heft skill for your coding agent:
+
+```sh
+npx skills add pasierb/heft --skill heft --global
+```
+
+The skill teaches agents when and how to use heft for task-focused worktrees.
+
 Initialize it in a Git repository:
 
 ```sh
