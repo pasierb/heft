@@ -24,11 +24,14 @@ case "$(uname -m)" in
 	*) fail "unsupported architecture: $(uname -m)" ;;
 esac
 
-release_url=$(curl -fsSL -o /dev/null -w '%{url_effective}' "https://github.com/$REPO/releases/latest") ||
-	fail "could not find the latest release"
-version=${release_url##*/}
+version=${HEFT_VERSION:-}
+if [ -z "$version" ]; then
+	release_url=$(curl -fsSL -o /dev/null -w '%{url_effective}' "https://github.com/$REPO/releases/latest") ||
+		fail "could not find the latest release"
+	version=${release_url##*/}
+fi
 archive="heft_${version}_${os}_${arch}.tar.gz"
-download_url="https://github.com/$REPO/releases/download/$version"
+download_url=${HEFT_RELEASE_URL:-"https://github.com/$REPO/releases/download/$version"}
 
 tmp=$(mktemp -d)
 trap 'rm -rf "$tmp"' EXIT HUP INT TERM

@@ -2,7 +2,7 @@ BINARY := bin/heft
 VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
 LDFLAGS := -X main.version=$(VERSION)
 
-.PHONY: build install test run clean work-on-fizzy
+.PHONY: build install test test-e2e run clean work-on-fizzy
 
 ifeq ($(firstword $(MAKECMDGOALS)),work-on-fizzy)
 ifneq ($(words $(MAKECMDGOALS)),2)
@@ -22,6 +22,9 @@ install: build
 
 test:
 	go test ./...
+
+test-e2e:
+	docker build --progress=plain -f test/e2e/Dockerfile .
 
 run:
 	go run ./cmd/heft
