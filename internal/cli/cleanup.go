@@ -37,7 +37,7 @@ branch is preserved.`,
 				return err
 			}
 			path := worktreePath(root, cfg.WorktreesDir, branch)
-			return removeWorktree(cmd, root, path)
+			return removeWorktree(cmd, root, path, false)
 		},
 	}
 }
@@ -48,7 +48,7 @@ func newPruneCommand() *cobra.Command {
 		Short: "Remove all clean worktrees",
 		Long: `Remove every clean linked worktree and close its Herdr workspace.
 
-The primary worktree, dirty worktrees, and local branches are preserved.
+The primary worktree, dirty worktrees, active agent workspaces, and local branches are preserved.
 Skipped worktrees are reported on stderr.`,
 		Example: "  heft prune",
 		Args:    cobra.NoArgs,
@@ -68,7 +68,7 @@ Skipped worktrees are reported on stderr.`,
 				if path == root {
 					continue
 				}
-				if err := removeWorktree(cmd, root, path); err != nil {
+				if err := removeWorktree(cmd, root, path, true); err != nil {
 					fmt.Fprintf(cmd.ErrOrStderr(), "skip %s: %v\n", path, err)
 				}
 			}
@@ -87,7 +87,7 @@ func parseWorktrees(out []byte) []string {
 	return worktrees
 }
 
-func removeWorktree(cmd *cobra.Command, root, path string) error {
+func removeWorktree(cmd *cobra.Command, root, path string, preserveActiveAgent bool) error {
 	if err := checkUncommittedChanges(cmd, path); err != nil {
 		return err
 	}
@@ -96,12 +96,48 @@ func removeWorktree(cmd *cobra.Command, root, path string) error {
 		return err
 	}
 	if workspaceID != "" {
+		if preserveActiveAgent {
+			if err := checkHerdrAgentsSettled(cmd, workspaceID); err != nil {
+				return err
+			}
+		}
 		if err := runHerdr(cmd, nil, "close herdr workspace", "workspace", "close", workspaceID); err != nil {
 			return err
 		}
 	}
 	if err := runGit(cmd, root, "worktree", "remove", path); err != nil {
 		return fmt.Errorf("remove worktree: %w", err)
+	}
+	return nil
+}
+
+func checkHerdrAgentsSettled(cmd *cobra.Command, workspaceID string) error {
+	var out bytes.Buffer
+	if err := runHerdr(cmd, &out, "list herdr agents", "agent", "list"); err != nil {
+		return err
+	}
+	var listed struct {
+		Result struct {
+			Agents *[]struct {
+				WorkspaceID string `json:"workspace_id"`
+				AgentStatus string `json:"agent_status"`
+			} `json:"agents"`
+		} `json:"result"`
+	}
+	if err := json.Unmarshal(out.Bytes(), &listed); err != nil {
+		return fmt.Errorf("list herdr agents: decode response: %w", err)
+	}
+	if listed.Result.Agents == nil {
+		return errors.New("list herdr agents: response missing agents")
+	}
+	for _, agent := range *listed.Result.Agents {
+		if agent.WorkspaceID == workspaceID && agent.AgentStatus != "idle" && agent.AgentStatus != "done" {
+			status := agent.AgentStatus
+			if status == "" {
+				status = "missing"
+			}
+			return fmt.Errorf("herdr agent status is %s", status)
+		}
 	}
 	return nil
 }
