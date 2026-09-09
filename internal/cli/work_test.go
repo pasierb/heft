@@ -99,6 +99,55 @@ func TestWorkRequiresOneBranch(t *testing.T) {
 	}
 }
 
+func TestWorkReusesExistingWorktree(t *testing.T) {
+	repo := workRepo(t)
+	installHerdrForTabs(t)
+	log := filepath.Join(t.TempDir(), "herdr.log")
+	t.Setenv("HERDR_TEST_LOG", log)
+	if err := os.WriteFile(filepath.Join(repo, ".heft.yaml"), []byte("worktrees_dir: trees\nbase_branch: main\ntabs:\n  - name: agent\n    command: my-agent\n    agent: true\n  - name: shell\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	t.Chdir(repo)
+	args := []string{"work", "feature/abc", "--prompt", "do the work", "--no-focus"}
+	if _, _, err := execute(t, args...); err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(repo, "trees", "feature_abc")
+	wantHead := gitRun(t, path, "rev-parse", "HEAD")
+	if err := os.WriteFile(filepath.Join(path, "file"), []byte("dirty\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	stdout, _, err := execute(t, args...)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(stdout, "Reusing worktree at "+path+".") {
+		t.Fatalf("unexpected output: %q", stdout)
+	}
+	assertFileContents(t, filepath.Join(path, "file"), "dirty\n")
+	if got := gitRun(t, path, "rev-parse", "HEAD"); got != wantHead {
+		t.Fatalf("HEAD = %q, want %q", got, wantHead)
+	}
+	if _, _, err := execute(t, "work", "feature_abc"); err == nil || !strings.Contains(err.Error(), "is not on branch") {
+		t.Fatalf("expected branch collision error, got %v", err)
+	}
+	if err := os.RemoveAll(path); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := execute(t, args...); err == nil || !strings.Contains(err.Error(), "check existing worktree") {
+		t.Fatalf("expected missing worktree error, got %v", err)
+	}
+	calls, err := os.ReadFile(log)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, call := range []string{"workspace\ncreate\n", "tab\ncreate\n", "pane\nrun\np1\nmy-agent\n", "agent\nprompt\np1\ndo the work\n"} {
+		if got := strings.Count(string(calls), call); got != 2 {
+			t.Fatalf("call %q occurred %d times, want 2", call, got)
+		}
+	}
+}
+
 func TestWorkReusesExistingBranches(t *testing.T) {
 	for _, remote := range []bool{false, true} {
 		name := "local"
