@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="316.5" height="329" viewBox="354 115 316.5 329">
+  <title>Interlocking h monogram</title>
+  <desc>Editable vector tracing in charcoal, gold and sage green, with a transparent background.</desc>
+  <path id="charcoal-stem" fill="#585952" d="M354 115H420V319.5H470.5V393.5L493.5 401.5Q495 402 495 404V444H354V404Q354 402 356 401.5L378.5 393.5V164Q378.5 162 376.5 161.5L354 155Z"/>
+  <path id="gold-arch" fill="#BC9B59" d="M428.5 115H469.5V215C487 203 506 196 528.5 196C594 196 641 239 645.5 319.5H604C601 270 568 232 520 232C476 232 448 263 428.5 305Z"/>
+  <path id="sage-inner-arch" fill="#7F8E6A" d="M426 319.5C438 301 450 269 477 251.5C490 243 504 240 519 240C562 240 593 274 595 320V444H529V404Q529 402 531 401.5L553 393.5C554 371 554 344 553.5 326C553 297 537 278.5 513.5 278.5C489 278.5 471 296 470.5 319.5Z"/>
+  <path id="sage-outer-stem" fill="#7F8E6A" d="M604 319.5H645.5L646 393.5L668.5 401Q670.5 401.5 670.5 403.5V444H604Z"/>
+</svg>
