@@ -164,6 +164,7 @@ Run `heft <command> --help` for command-specific usage.
 make build   # build bin/heft
 make run     # run without installing
 make test    # run the test suite
+make test-e2e # test installation and every command in Docker with real Herdr
 ```
 
 `make build` derives the version from Git. Direct `go build` invocations report
