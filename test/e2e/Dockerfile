@@ -12,7 +12,7 @@ RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
     && cd /release \
     && sha256sum ./*.tar.gz > SHA256SUMS
 
-FROM debian:bookworm-slim
+FROM node:26-bookworm-slim
 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends ca-certificates coreutils curl git tar \
@@ -26,5 +26,6 @@ RUN apt-get update \
 COPY --from=build /release /release
 COPY install.sh /test/install.sh
 COPY test/e2e/run.sh /test/run.sh
+COPY skills/heft /test/repo/skills/heft
 
 RUN /test/run.sh

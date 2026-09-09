@@ -15,6 +15,10 @@ manifest_check = false
 confirm_close = false
 EOF
 
+npx --yes skills@1.5.25 add /test/repo --skill heft --agent codex --global --yes --copy
+test -f "$HOME/.agents/skills/heft/SKILL.md"
+grep -q '^name: heft$' "$HOME/.agents/skills/heft/SKILL.md"
+
 trap 'herdr server stop >/dev/null 2>&1 || true' EXIT HUP INT TERM
 herdr server >/tmp/herdr.log 2>&1 &
 timeout 5 sh -c 'until herdr status >/dev/null 2>&1; do sleep 0.1; done' || { cat /tmp/herdr.log; exit 1; }
