@@ -20,8 +20,16 @@ func newWorkCommand() *cobra.Command {
 	var label string
 	cmd := &cobra.Command{
 		Use:   "work <branch>",
-		Short: "Create a worktree",
-		Args:  cobra.ExactArgs(1),
+		Short: "Create a task worktree and workspace",
+		Long: `Create or reuse a branch, check it out in the configured worktree directory,
+and open a matching Herdr workspace.
+
+New branches start from origin/<base_branch>. Existing local or remote branches
+are reused. Use --prompt to send work directly to a configured agent tab.`,
+		Example: `  heft work feature/login
+  heft work fizzy-40 --prompt "Analyze card 40 and implement it"
+  heft work bugfix/session --profile research --no-focus`,
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			root, err := projectRoot()
 			if err != nil {
@@ -135,10 +143,10 @@ func newWorkCommand() *cobra.Command {
 			return nil
 		},
 	}
-	cmd.Flags().StringVar(&prompt, "prompt", "", "prompt the configured agent tab")
-	cmd.Flags().StringVar(&profileName, "profile", "", "use tabs from the named profile")
-	cmd.Flags().BoolVar(&noFocus, "no-focus", false, "open the workspace without focusing it")
-	cmd.Flags().StringVar(&label, "label", "", "set the Herdr workspace label")
+	cmd.Flags().StringVar(&prompt, "prompt", "", "send a prompt to the configured agent tab")
+	cmd.Flags().StringVar(&profileName, "profile", "", "use the named tab profile from .heft.yaml")
+	cmd.Flags().BoolVar(&noFocus, "no-focus", false, "create the workspace without focusing it")
+	cmd.Flags().StringVar(&label, "label", "", "override the Herdr workspace label")
 	return cmd
 }
 
@@ -148,9 +156,11 @@ func gitRefExists(cmd *cobra.Command, root, ref string) bool {
 
 func newListCommand() *cobra.Command {
 	return &cobra.Command{
-		Use:   "list",
-		Short: "List worktrees",
-		Args:  cobra.NoArgs,
+		Use:     "list",
+		Short:   "List worktrees",
+		Long:    "List all worktrees registered with the current Git repository.",
+		Example: "  heft list",
+		Args:    cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			root, err := projectRoot()
 			if err != nil {

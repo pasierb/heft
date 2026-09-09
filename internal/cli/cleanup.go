@@ -16,7 +16,12 @@ func newCleanupCommand() *cobra.Command {
 	return &cobra.Command{
 		Use:   "cleanup <branch>",
 		Short: "Remove a worktree",
-		Args:  cobra.ExactArgs(1),
+		Long: `Close the matching Herdr workspace and remove a task worktree.
+
+The worktree must have no staged, unstaged, or untracked changes. The local
+branch is preserved.`,
+		Example: "  heft cleanup feature/login",
+		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			root, err := projectRoot()
 			if err != nil {
@@ -41,7 +46,12 @@ func newPruneCommand() *cobra.Command {
 	return &cobra.Command{
 		Use:   "prune",
 		Short: "Remove all clean worktrees",
-		Args:  cobra.NoArgs,
+		Long: `Remove every clean linked worktree and close its Herdr workspace.
+
+The primary worktree, dirty worktrees, and local branches are preserved.
+Skipped worktrees are reported on stderr.`,
+		Example: "  heft prune",
+		Args:    cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			root, err := projectRoot()
 			if err != nil {
