@@ -64,7 +64,7 @@ heft cleanup feature/abc
 ```
 
 The local branch is preserved. To remove every clean linked worktree while
-leaving dirty worktrees and local branches untouched, run:
+leaving dirty worktrees, active agent workspaces, and local branches untouched, run:
 
 ```sh
 heft prune
@@ -153,7 +153,7 @@ Herdr-recognized agent. In the example above, that is `codex`.
 | `heft work <branch> --no-focus` | Keep the current Herdr workspace focused |
 | `heft list` | List the repository's worktrees |
 | `heft cleanup <branch>` | Close its Herdr workspace and remove a clean worktree |
-| `heft prune` | Remove all clean linked worktrees |
+| `heft prune` | Remove clean linked worktrees without active agents |
 | `heft version` / `heft --version` | Print version information |
 
 Run `heft <command> --help` for command-specific usage.

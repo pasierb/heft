@@ -60,6 +60,81 @@ func TestPruneClosesHerdrWorkspaces(t *testing.T) {
 	}
 }
 
+func TestPrunePreservesActiveAgents(t *testing.T) {
+	for _, status := range []string{"working", "blocked", "unknown"} {
+		t.Run(status, func(t *testing.T) {
+			_, worktree := cleanupRepo(t, status)
+			herdrLog := filepath.Join(t.TempDir(), "herdr.log")
+			t.Setenv("HERDR_TEST_LOG", herdrLog)
+			t.Setenv("HERDR_TEST_WORKTREES", fmt.Sprintf(`{"result":{"worktrees":[{"path":%q,"open_workspace_id":"w1"}]}}`, worktree))
+			t.Setenv("HERDR_TEST_AGENTS", fmt.Sprintf(`{"result":{"agents":[{"workspace_id":"w1","agent_status":%q}]}}`, status))
+
+			_, stderr, err := execute(t, "prune")
+			if err != nil {
+				t.Fatal(err)
+			}
+			if _, err := os.Stat(worktree); err != nil {
+				t.Fatalf("worktree should remain: %v", err)
+			}
+			if !strings.Contains(stderr, "herdr agent status is "+status) {
+				t.Fatalf("unexpected stderr: %q", stderr)
+			}
+			log, err := os.ReadFile(herdrLog)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if strings.Contains(string(log), "workspace\nclose\n") {
+				t.Fatalf("workspace should remain open: %q", log)
+			}
+		})
+	}
+}
+
+func TestPruneRemovesWorktreesWithSettledAgents(t *testing.T) {
+	for _, status := range []string{"idle", "done"} {
+		t.Run(status, func(t *testing.T) {
+			_, worktree := cleanupRepo(t, status)
+			t.Setenv("HERDR_TEST_WORKTREES", fmt.Sprintf(`{"result":{"worktrees":[{"path":%q,"open_workspace_id":"w1"}]}}`, worktree))
+			t.Setenv("HERDR_TEST_AGENTS", fmt.Sprintf(`{"result":{"agents":[{"workspace_id":"w1","agent_status":%q}]}}`, status))
+
+			if _, _, err := execute(t, "prune"); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := os.Stat(worktree); !os.IsNotExist(err) {
+				t.Fatalf("worktree should not exist: %v", err)
+			}
+		})
+	}
+}
+
+func TestPrunePreservesWorktreeWhenAgentStatusIsUnavailable(t *testing.T) {
+	for _, test := range []struct {
+		name, response, exit string
+	}{
+		{"malformed", "not json", ""},
+		{"missing agents", `{"result":{}}`, ""},
+		{"command failure", "", "1"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			_, worktree := cleanupRepo(t, "feature")
+			t.Setenv("HERDR_TEST_WORKTREES", fmt.Sprintf(`{"result":{"worktrees":[{"path":%q,"open_workspace_id":"w1"}]}}`, worktree))
+			t.Setenv("HERDR_TEST_AGENTS", test.response)
+			t.Setenv("HERDR_TEST_AGENTS_EXIT", test.exit)
+
+			_, stderr, err := execute(t, "prune")
+			if err != nil {
+				t.Fatal(err)
+			}
+			if _, err := os.Stat(worktree); err != nil {
+				t.Fatalf("worktree should remain: %v", err)
+			}
+			if !strings.Contains(stderr, "skip "+worktree+": list herdr agents") {
+				t.Fatalf("unexpected stderr: %q", stderr)
+			}
+		})
+	}
+}
+
 func TestCleanupRejectsUncommittedChanges(t *testing.T) {
 	for _, test := range []struct {
 		name   string
@@ -180,6 +255,13 @@ if [ "$1 $2" = "worktree list" ]; then
     printf '%s\n' "$HERDR_TEST_WORKTREES"
   else
     printf '%s\n' '{"result":{"worktrees":[]}}'
+  fi
+elif [ "$1 $2" = "agent list" ]; then
+  [ -z "$HERDR_TEST_AGENTS_EXIT" ] || exit "$HERDR_TEST_AGENTS_EXIT"
+  if [ -n "$HERDR_TEST_AGENTS" ]; then
+    printf '%s\n' "$HERDR_TEST_AGENTS"
+  else
+    printf '%s\n' '{"result":{"agents":[]}}'
   fi
 fi
 `

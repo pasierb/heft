@@ -26,7 +26,7 @@ func TestCommandHelpExplainsBehaviorAndShowsExample(t *testing.T) {
 		{"work", []string{"New branches start from origin/<base_branch>", "heft work fizzy-40 --prompt"}},
 		{"list", []string{"registered with the current Git repository", "heft list"}},
 		{"cleanup", []string{"local\nbranch is preserved", "heft cleanup feature/login"}},
-		{"prune", []string{"dirty worktrees, and local branches are preserved", "heft prune"}},
+		{"prune", []string{"dirty worktrees, active agent workspaces, and local branches are preserved", "heft prune"}},
 		{"version", []string{"installed heft version", "heft version"}},
 	}
 
