@@ -14,7 +14,12 @@ func newInitCommand() *cobra.Command {
 	return &cobra.Command{
 		Use:   "init",
 		Short: "Initialize heft",
-		Args:  cobra.NoArgs,
+		Long: `Check that Herdr is installed and initialize heft in the current Git repository.
+
+If .heft.yaml does not exist, heft prompts for configuration and adds the
+worktree directory to .gitignore. Existing configuration is preserved.`,
+		Example: "  heft init",
+		Args:    cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			if _, err := exec.LookPath("herdr"); err != nil {
 				return fmt.Errorf("herdr is not installed or not in PATH")

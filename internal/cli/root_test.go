@@ -15,6 +15,40 @@ func TestRootShowsHelp(t *testing.T) {
 	}
 }
 
+func TestCommandHelpExplainsBehaviorAndShowsExample(t *testing.T) {
+	tests := []struct {
+		command string
+		want    []string
+	}{
+		{"", []string{"matching Herdr workspaces", "heft work feature/login"}},
+		{"init", []string{".heft.yaml does not exist", "heft init"}},
+		{"configure", []string{"Existing values are offered as defaults", "heft configure"}},
+		{"work", []string{"New branches start from origin/<base_branch>", "heft work fizzy-40 --prompt"}},
+		{"list", []string{"registered with the current Git repository", "heft list"}},
+		{"cleanup", []string{"local\nbranch is preserved", "heft cleanup feature/login"}},
+		{"prune", []string{"dirty worktrees, and local branches are preserved", "heft prune"}},
+		{"version", []string{"installed heft version", "heft version"}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.command, func(t *testing.T) {
+			args := []string{"--help"}
+			if tt.command != "" {
+				args = append([]string{tt.command}, args...)
+			}
+			stdout, _, err := execute(t, args...)
+			if err != nil {
+				t.Fatalf("show help: %v", err)
+			}
+			for _, want := range tt.want {
+				if !strings.Contains(stdout, want) {
+					t.Errorf("help does not contain %q:\n%s", want, stdout)
+				}
+			}
+		})
+	}
+}
+
 func TestVersionFlag(t *testing.T) {
 	stdout, _, err := execute(t, "--version")
 	if err != nil {

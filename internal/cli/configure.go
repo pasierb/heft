@@ -38,7 +38,12 @@ func newConfigureCommand() *cobra.Command {
 	return &cobra.Command{
 		Use:   "configure",
 		Short: "Configure heft",
-		Args:  cobra.NoArgs,
+		Long: `Interactively update .heft.yaml at the Git repository root.
+
+Existing values are offered as defaults. Unknown configuration fields are
+preserved so newer settings remain intact.`,
+		Example: "  heft configure",
+		Args:    cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			root, err := projectRoot()
 			if err != nil {
