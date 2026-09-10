@@ -61,3 +61,18 @@ test -d .worktrees/prune-two
 heft prune
 test ! -e .worktrees/prune-one
 test ! -e .worktrees/prune-two
+
+# Unpushed work retains both the worktree and its workspace until explicitly forced.
+heft work unpushed --no-focus
+git -C .worktrees/unpushed commit --allow-empty -m unpushed
+if heft cleanup unpushed; then
+    echo "cleanup unexpectedly removed unpushed work" >&2
+    exit 1
+fi
+heft prune
+test -d .worktrees/unpushed
+herdr worktree list --cwd /tmp/project | grep -q '"branch":"unpushed"'
+heft cleanup unpushed --force
+test ! -e .worktrees/unpushed
+! herdr worktree list --cwd /tmp/project | grep -q '"branch":"unpushed"'
+git show-ref --verify refs/heads/unpushed
