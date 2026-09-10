@@ -106,3 +106,37 @@ func assertFileContents(t *testing.T, path, want string) {
 		t.Fatalf("%s = %q, want %q", filepath.Base(path), data, want)
 	}
 }
+
+func TestProjectRootAcrossWorktrees(t *testing.T) {
+	original := workRepo(t)
+	repo := filepath.Join(t.TempDir(), "primary space\nline")
+	if err := os.Rename(original, repo); err != nil {
+		t.Fatal(err)
+	}
+	linked := filepath.Join(t.TempDir(), "linked space\nline")
+	gitRun(t, repo, "worktree", "add", "-qb", "linked", linked)
+	for _, base := range []string{repo, linked} {
+		nested := filepath.Join(base, "nested")
+		if err := os.Mkdir(nested, 0o755); err != nil {
+			t.Fatal(err)
+		}
+		for _, dir := range []string{base, nested} {
+			t.Run(dir, func(t *testing.T) {
+				t.Chdir(dir)
+				got, err := projectRoot()
+				if err != nil || got != repo {
+					t.Fatalf("projectRoot() = %q, %v; want %q", got, err, repo)
+				}
+			})
+		}
+	}
+}
+
+func TestProjectRootRejectsBareRepository(t *testing.T) {
+	dir := t.TempDir()
+	gitRun(t, dir, "init", "--bare", "-q")
+	t.Chdir(dir)
+	if _, err := projectRoot(); err == nil {
+		t.Fatal("expected an error for a repository without a primary checkout")
+	}
+}

@@ -255,6 +255,9 @@ func installHerdrForCleanup(t *testing.T) {
 	herdr := filepath.Join(dir, "herdr")
 	contents := `#!/bin/sh
 [ -z "$HERDR_TEST_LOG" ] || printf '%s\n' "$@" >> "$HERDR_TEST_LOG"
+if [ "$1 $2 $3" = "workspace close w1" ] && [ -n "$HERDR_TEST_REMOVAL_PATH" ]; then
+  [ ! -e "$HERDR_TEST_REMOVAL_PATH" ] || exit 1
+fi
 if [ "$1 $2" = "worktree list" ]; then
   if [ -n "$HERDR_TEST_WORKTREES" ]; then
     printf '%s\n' "$HERDR_TEST_WORKTREES"
@@ -468,6 +471,58 @@ exec "$HEFT_TEST_REAL_GIT" "$@"
 			if scenario != "forced prune" && strings.Contains(string(calls), "workspace\nclose\n") {
 				t.Fatalf("unsafe workspace closed: %s", calls)
 			}
+		})
+	}
+}
+
+func TestRemovalFromLinkedWorktree(t *testing.T) {
+	for _, command := range []string{"cleanup", "prune"} {
+		t.Run(command, func(t *testing.T) {
+			repo, first := cleanupRepo(t, "first")
+			second := worktreePath(repo, "trees", "second")
+			gitRun(t, repo, "worktree", "add", "-qb", "second", second)
+			nested := filepath.Join(first, "nested")
+			if err := os.Mkdir(nested, 0o755); err != nil {
+				t.Fatal(err)
+			}
+			log := filepath.Join(t.TempDir(), "herdr.log")
+			t.Setenv("HERDR_TEST_LOG", log)
+			t.Setenv("HERDR_WORKSPACE_ID", "w1")
+			t.Setenv("HERDR_TEST_REMOVAL_PATH", first)
+			t.Setenv("HERDR_TEST_WORKTREES", fmt.Sprintf(
+				`{"result":{"worktrees":[{"path":%q,"open_workspace_id":"w1"},{"path":%q,"open_workspace_id":"w2"}]}}`, first, second))
+			t.Chdir(nested)
+			args := []string{command}
+			if command == "cleanup" {
+				args = append(args, "first")
+			}
+			_, stderr, err := execute(t, args...)
+			if err != nil || stderr != "" {
+				t.Fatalf("removal failed: %v; %s", err, stderr)
+			}
+			if cwd, err := os.Getwd(); err != nil || cwd != repo {
+				t.Fatalf("working directory = %q, %v; want %q", cwd, err, repo)
+			}
+			for i, path := range []string{first, second} {
+				_, err := os.Stat(path)
+				remove := i == 0 || command == "prune"
+				if remove && !os.IsNotExist(err) || !remove && err != nil {
+					t.Fatalf("worktree %s: remove=%v, error=%v", path, remove, err)
+				}
+			}
+			calls, err := os.ReadFile(log)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !strings.Contains(string(calls), "workspace\nclose\nw1\n") ||
+				(command == "prune" && !strings.Contains(string(calls), "workspace\nclose\nw2\n")) {
+				t.Fatalf("missing workspace closure: %s", calls)
+			}
+			if command == "prune" && strings.Index(string(calls), "close\nw1") < strings.Index(string(calls), "close\nw2") {
+				t.Fatal("invoking workspace must close after other removals")
+			}
+			gitRun(t, repo, "show-ref", "--verify", "refs/heads/first")
+			gitRun(t, repo, "show-ref", "--verify", "refs/heads/second")
 		})
 	}
 }

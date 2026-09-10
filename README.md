@@ -49,6 +49,11 @@ Initialize it in a Git repository:
 heft init
 ```
 
+Commands can run from any worktree or its subdirectories. Heft uses the primary
+checkout's `.heft.yaml` and resolves worktree paths relative to that checkout.
+Worktree-local configuration is ignored; `init` and `configure` update the primary
+checkout's configuration and `.gitignore`.
+
 Create a worktree and Herdr workspace for a task:
 
 ```sh
@@ -88,6 +93,9 @@ and local branches untouched, run:
 ```sh
 heft prune
 ```
+
+Pruning from inside a linked worktree includes that worktree when eligible.
+The primary checkout is always preserved.
 
 Both commands fetch origin once and refresh its branch references before removal.
 A missing or unreachable origin prevents removal. No upstream or same-name remote

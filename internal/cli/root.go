@@ -10,7 +10,9 @@ func New(version string) *cobra.Command {
 		Long: `Heft manages task-focused Git worktrees and matching Herdr workspaces.
 
 Run heft init once in a Git repository, then use heft work for each task.
-Configuration is stored in .heft.yaml at the repository root.`,
+Commands can run from any worktree or its subdirectories.
+Configuration is stored in .heft.yaml at the primary checkout root;
+worktree-local configuration is ignored.`,
 		Example: `  heft init
   heft work feature/login
   heft list

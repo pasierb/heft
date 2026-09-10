@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
@@ -61,6 +62,7 @@ func newPruneCommand() *cobra.Command {
 The primary worktree, dirty worktrees, active agent workspaces, and local branches are preserved.
 Unless --force is set, origin is fetched once and worktrees with commits missing
 from origin branches are also preserved. A failed fetch prevents all removal.
+The invoking worktree is included when eligible.
 Skipped worktrees are reported on stderr.`,
 		Example: "  heft prune",
 		Args:    cobra.NoArgs,
@@ -69,7 +71,7 @@ Skipped worktrees are reported on stderr.`,
 			if err != nil {
 				return err
 			}
-			git := exec.CommandContext(cmd.Context(), "git", "-C", root, "worktree", "list", "--porcelain")
+			git := exec.CommandContext(cmd.Context(), "git", "-C", root, "worktree", "list", "--porcelain", "-z")
 			git.Stderr = cmd.ErrOrStderr()
 			out, err := git.Output()
 			if err != nil {
@@ -82,9 +84,6 @@ Skipped worktrees are reported on stderr.`,
 			}
 			worktrees := parseWorktrees(out)
 			for _, path := range worktrees[1:] { // Git lists the primary worktree first.
-				if path == root {
-					continue
-				}
 				if err := removeWorktree(cmd, root, path, true, force); err != nil {
 					fmt.Fprintf(cmd.ErrOrStderr(), "skip %s: %v\n", path, err)
 				}
@@ -107,7 +106,7 @@ func fetchCleanupOrigin(cmd *cobra.Command, root string) error {
 
 func parseWorktrees(out []byte) []string {
 	var worktrees []string
-	for _, line := range bytes.Split(out, []byte{'\n'}) {
+	for _, line := range bytes.Split(out, []byte{0}) {
 		if path, ok := strings.CutPrefix(string(line), "worktree "); ok {
 			worktrees = append(worktrees, path)
 		}
@@ -116,6 +115,10 @@ func parseWorktrees(out []byte) []string {
 }
 
 func removeWorktree(cmd *cobra.Command, root, path string, preserveActiveAgent, force bool) error {
+	// Keep subprocesses in a live directory when removing the invoking worktree.
+	if err := os.Chdir(root); err != nil {
+		return fmt.Errorf("enter project root before removal: %w", err)
+	}
 	if err := checkUncommittedChanges(cmd, path); err != nil {
 		return err
 	}
@@ -134,18 +137,27 @@ func removeWorktree(cmd *cobra.Command, root, path string, preserveActiveAgent, 
 	if err != nil {
 		return err
 	}
+	closeCaller := workspaceID != "" && workspaceID == os.Getenv("HERDR_WORKSPACE_ID")
 	if workspaceID != "" {
 		if preserveActiveAgent {
 			if err := checkHerdrAgentsSettled(cmd, workspaceID); err != nil {
 				return err
 			}
 		}
-		if err := runHerdr(cmd, nil, "close herdr workspace", "workspace", "close", workspaceID); err != nil {
-			return err
+		if !closeCaller {
+			if err := runHerdr(cmd, nil, "close herdr workspace", "workspace", "close", workspaceID); err != nil {
+				return err
+			}
 		}
 	}
 	if err := runGit(cmd, root, "worktree", "remove", path); err != nil {
 		return fmt.Errorf("remove worktree: %w", err)
+	}
+	if closeCaller {
+		// Closing our own pane can terminate heft. Finish all removals first.
+		cmd.PostRunE = func(cmd *cobra.Command, _ []string) error {
+			return runHerdr(cmd, nil, "close herdr workspace", "workspace", "close", workspaceID)
+		}
 	}
 	return nil
 }

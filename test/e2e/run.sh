@@ -42,37 +42,71 @@ git -C /tmp/project remote add origin /tmp/origin.git
 git -C /tmp/project push -u origin main
 
 cd /tmp/project
-printf '\n\n\n4\nsh\n' | heft init
+printf 'trees\n\n\n4\nsh\n' | heft init
 grep -q 'command: sh' .heft.yaml
 printf '\n\n\n' | heft configure
 
 heft work cleanup-me --label "e2e cleanup" --no-focus
-test -d .worktrees/cleanup-me
+test -d trees/cleanup-me
 heft list | grep -q cleanup-me
 herdr worktree list --cwd /tmp/project | grep -q '"branch":"cleanup-me"'
-heft cleanup cleanup-me
-test ! -e .worktrees/cleanup-me
+(cd trees/cleanup-me && heft cleanup cleanup-me)
+test ! -e trees/cleanup-me
 ! herdr worktree list --cwd /tmp/project | grep -q '"branch":"cleanup-me"'
 
-heft work prune-one --no-focus
-heft work prune-two --no-focus
-test -d .worktrees/prune-one
-test -d .worktrees/prune-two
-heft prune
-test ! -e .worktrees/prune-one
-test ! -e .worktrees/prune-two
+# Commands inside a linked checkout use the primary configuration and paths.
+heft work prune-one --label "e2e prune one" --no-focus
+mkdir -p trees/prune-one/nested
+(
+    cd trees/prune-one/nested
+    heft work prune-two --label "e2e prune two" --no-focus
+    heft list | grep -q prune-two
+)
+test -d trees/prune-one
+test -d trees/prune-two
+test ! -e trees/prune-one/.worktrees
+test ! -e trees/prune-one/trees
+herdr workspace list | node -e '
+const {workspaces} = JSON.parse(require("fs").readFileSync(0, "utf8")).result;
+for (const label of ["e2e prune one", "e2e prune two"])
+    require("assert").ok(workspaces.some(w => w.label === label), label + " missing");
+'
+# Run in the workspace being closed: closure must not interrupt removal.
+workspace_id=$(herdr workspace list | node -e '
+const {workspaces} = JSON.parse(require("fs").readFileSync(0, "utf8")).result;
+console.log(workspaces.find(w => w.label === "e2e prune one").workspace_id);
+')
+pane_id=$(herdr pane list --workspace "$workspace_id" | node -e '
+console.log(JSON.parse(require("fs").readFileSync(0, "utf8")).result.panes[0].pane_id);
+')
+heft_binary=$(command -v heft)
+herdr pane run "$pane_id" "cd /tmp/project/trees/prune-one/nested && '$heft_binary' prune"
+timeout 10 sh -c 'while [ -d /tmp/project/trees/prune-one ] || [ -d /tmp/project/trees/prune-two ]; do sleep 0.1; done'
+test ! -e trees/prune-one
+test ! -e trees/prune-two
+test -d .git
+test -f .heft.yaml
+git show-ref --verify refs/heads/prune-one
+git show-ref --verify refs/heads/prune-two
+timeout 10 node --input-type=module -e '
+import {execFileSync} from "node:child_process";
+import {setTimeout} from "node:timers/promises";
+while (JSON.parse(execFileSync("herdr", ["workspace", "list"], {encoding: "utf8"}))
+    .result.workspaces.some(w => ["e2e prune one", "e2e prune two"].includes(w.label)))
+    await setTimeout(100);
+'
 
 # Unpushed work retains both the worktree and its workspace until explicitly forced.
 heft work unpushed --no-focus
-git -C .worktrees/unpushed commit --allow-empty -m unpushed
+git -C trees/unpushed commit --allow-empty -m unpushed
 if heft cleanup unpushed; then
     echo "cleanup unexpectedly removed unpushed work" >&2
     exit 1
 fi
 heft prune
-test -d .worktrees/unpushed
+test -d trees/unpushed
 herdr worktree list --cwd /tmp/project | grep -q '"branch":"unpushed"'
 heft cleanup unpushed --force
-test ! -e .worktrees/unpushed
+test ! -e trees/unpushed
 ! herdr worktree list --cwd /tmp/project | grep -q '"branch":"unpushed"'
 git show-ref --verify refs/heads/unpushed

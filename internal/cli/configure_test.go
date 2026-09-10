@@ -130,7 +130,11 @@ func TestSetupDetectsBaseBranch(t *testing.T) {
 			if !strings.Contains(stdout, "Base branch [release/stable]:") {
 				t.Fatalf("unexpected setup output %q", stdout)
 			}
-			path := filepath.Join(root, ".heft.yaml")
+			path := filepath.Join(repo, ".heft.yaml")
+			if _, err := os.Stat(filepath.Join(root, ".heft.yaml")); !os.IsNotExist(err) {
+				t.Fatalf("linked config should not exist: %v", err)
+			}
+			assertFileContents(t, filepath.Join(repo, ".gitignore"), "/.worktrees/\n")
 			cfg, err := readConfig(path)
 			if err != nil {
 				t.Fatal(err)
