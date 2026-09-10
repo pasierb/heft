@@ -40,7 +40,12 @@ func TestWorkCreatesBranchFromFetchedBase(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(repo, ".heft.yaml"), []byte("worktrees_dir: trees\nbase_branch: main\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	nested := filepath.Join(repo, "nested")
+	linked := filepath.Join(t.TempDir(), "linked")
+	gitRun(t, repo, "worktree", "add", "-qb", "linked", linked)
+	if err := os.WriteFile(filepath.Join(linked, ".heft.yaml"), []byte("invalid: ["), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	nested := filepath.Join(linked, "nested")
 	if err := os.Mkdir(nested, 0o755); err != nil {
 		t.Fatal(err)
 	}

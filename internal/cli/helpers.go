@@ -2,19 +2,34 @@ package cli
 
 import (
 	"fmt"
+	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	"github.com/spf13/cobra"
 )
 
 func projectRoot() (string, error) {
-	out, err := exec.Command("git", "rev-parse", "--show-toplevel").Output()
+	out, err := exec.Command("git", "worktree", "list", "--porcelain", "-z").Output()
 	if err != nil {
 		return "", fmt.Errorf("find project root: %w", err)
 	}
-	return strings.TrimSpace(string(out)), nil
+	record, _, _ := strings.Cut(string(out), "\x00\x00")
+	fields := strings.Split(record, "\x00")
+	root, ok := strings.CutPrefix(fields[0], "worktree ")
+	if !ok || !filepath.IsAbs(root) || slices.Contains(fields, "bare") {
+		return "", fmt.Errorf("find project root: repository has no primary checkout")
+	}
+	info, err := os.Stat(root)
+	if err != nil {
+		return "", fmt.Errorf("find project root: %w", err)
+	}
+	if !info.IsDir() {
+		return "", fmt.Errorf("find project root: %s is not a directory", root)
+	}
+	return root, nil
 }
 
 func repositoryName(root string) (string, error) {
