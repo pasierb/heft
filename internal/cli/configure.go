@@ -64,8 +64,8 @@ func configure(cmd *cobra.Command, root string) error {
 	if cfg.WorktreesDir == "" {
 		cfg.WorktreesDir = ".worktrees"
 	}
-	if cfg.BaseBranch == "" {
-		cfg.BaseBranch = "main"
+	if _, err := os.Stat(path); errors.Is(err, os.ErrNotExist) || cfg.BaseBranch == "" {
+		cfg.BaseBranch = defaultBaseBranch(cmd, root)
 	}
 	reader := bufio.NewReader(cmd.InOrStdin())
 	if cfg.WorktreesDir, err = prompt(reader, cmd.OutOrStdout(), "Worktrees directory", cfg.WorktreesDir); err != nil {
@@ -121,6 +121,22 @@ func configure(cmd *cobra.Command, root string) error {
 	return ensureWorktreesIgnored(root, cfg.WorktreesDir)
 }
 
+func defaultBaseBranch(cmd *cobra.Command, root string) string {
+	out, err := exec.CommandContext(cmd.Context(), "git", "-C", root, "symbolic-ref", "--quiet", "refs/remotes/origin/HEAD").Output()
+	ref := strings.TrimSpace(string(out))
+	if err == nil && strings.HasPrefix(ref, "refs/remotes/origin/") && gitRefExists(cmd, root, ref) {
+		return strings.TrimPrefix(ref, "refs/remotes/origin/")
+	}
+	for _, prefix := range []string{"refs/remotes/origin/", "refs/heads/"} {
+		for _, branch := range []string{"main", "master"} {
+			if gitRefExists(cmd, root, prefix+branch) {
+				return branch
+			}
+		}
+	}
+	return "main"
+}
+
 func hasAgentTab(tabs []tab) bool {
 	for _, tab := range tabs {
 		if tab.Agent {
@@ -146,7 +162,7 @@ func promptHarness(reader *bufio.Reader, out io.Writer) (tab, error) {
 		case "1":
 			return tab{Name: "claude", Command: "claude", Agent: true}, nil
 		case "2":
-			return tab{Name: "codex", Command: "codex", Agent: true}, nil
+			return tab{Name: "codex", Command: "codex --yolo", Agent: true}, nil
 		case "3":
 			return tab{Name: "agy", Command: "agy", Agent: true}, nil
 		case "4":

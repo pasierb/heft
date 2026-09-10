@@ -126,7 +126,7 @@ base_branch: main
 workspace_prefix: heft
 tabs:
   - name: codex
-    command: codex
+    command: codex --yolo
     agent: true
   - name: shell
 profiles:
@@ -141,7 +141,10 @@ profiles:
 
 - `worktrees_dir` controls where worktrees are stored. The default is
   `.worktrees`; heft also adds the directory to `.gitignore`.
-- `base_branch` is the branch used for new worktrees. The default is `main`.
+- `base_branch` is the branch used for new worktrees. Setup suggests the branch
+  referenced by local `origin/HEAD`. If unavailable, it checks `origin/main`,
+  `origin/master`, local `main`, then local `master`, falling back to `main`.
+  Detection runs offline, and the prompt lets you override the suggestion.
 - `workspace_prefix` prefixes Herdr workspace names. It defaults to the
   repository name, producing names such as `heft feature/abc`.
 - `tabs` is an ordered list of Herdr tabs. Each tab needs a `name`; an optional
@@ -152,8 +155,11 @@ profiles:
 
 With no `tabs` setting, heft creates one Herdr workspace with its default tab.
 New configuration puts the selected agent first so it is focused, followed by
-the shell tab. Choosing `Other` stores the entered shell command and names the
-tab after its executable. Any extra tabs open in the background.
+the shell tab. Selecting Codex sets its command to `codex --yolo`, which disables
+approval prompts and sandboxing. Reconfiguring preserves existing agent commands
+and offers the saved base branch as the default. Choosing `Other` stores the
+entered shell command and names the tab after its executable. Any extra tabs open
+in the background.
 
 `--prompt` requires a configured tab marked with `agent: true` to start a
 Herdr-recognized agent. In the example above, that is `codex`.
