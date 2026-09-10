@@ -74,18 +74,29 @@ List the repository's worktrees:
 heft list
 ```
 
-Remove a worktree when it has no staged, unstaged, or untracked changes:
+Remove a worktree when it has no staged, unstaged, or untracked changes and
+all its commits exist on an origin branch:
 
 ```sh
 heft cleanup feature/abc
 ```
 
-The local branch is preserved. To remove every clean linked worktree while
-leaving dirty worktrees, active agent workspaces, and local branches untouched, run:
+The local branch is preserved. To remove all eligible linked worktrees while
+leaving dirty worktrees, worktrees with unpushed commits, active agent workspaces,
+and local branches untouched, run:
 
 ```sh
 heft prune
 ```
+
+Both commands fetch origin once and refresh its branch references before removal.
+A missing or unreachable origin prevents removal. No upstream or same-name remote
+branch is required: commits may exist on any origin branch. Squash-merged commits
+remain protected if their original commits no longer exist on origin.
+
+Use `heft cleanup <branch> --force` or `heft prune --force` to skip the fetch and
+unpushed-commit check, including when offline. Dirty worktrees remain protected,
+and forced pruning still preserves active agent workspaces.
 
 ## Scriptable workflows
 
@@ -175,8 +186,8 @@ Herdr-recognized agent. In the example above, that is `codex`.
 | `heft work <branch> --prompt <text>` | Start and prompt the configured agent tab |
 | `heft work <branch> --no-focus` | Keep the current Herdr workspace focused |
 | `heft list` | List the repository's worktrees |
-| `heft cleanup <branch>` | Close its Herdr workspace and remove a clean worktree |
-| `heft prune` | Remove clean linked worktrees without active agents |
+| `heft cleanup <branch>` | Close its Herdr workspace and remove a clean worktree with commits on origin |
+| `heft prune` | Remove clean linked worktrees with commits on origin and without active agents |
 | `heft version` / `heft --version` | Print version information |
 
 Run `heft <command> --help` for command-specific usage.

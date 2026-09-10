@@ -18,7 +18,7 @@ Use `heft` instead of coordinating Git worktrees and Herdr workspaces separately
    Herdr workspace label, `--no-focus` to keep the current workspace focused,
    or `--prompt <text>` to prompt the configured agent tab.
 4. Use `heft list` to inspect worktrees. Use `heft cleanup <branch>` for one
-   worktree or `heft prune` for all clean linked worktrees.
+   worktree or `heft prune` for all eligible clean linked worktrees.
 
 ## Constraints
 
@@ -26,5 +26,8 @@ Use `heft` instead of coordinating Git worktrees and Herdr workspaces separately
   branches are reused.
 - `--prompt` requires a configured tab with `agent: true`.
 - Cleanup refuses worktrees with staged, unstaged, or untracked changes and
-  preserves local branches.
+  preserves local branches. Both cleanup and prune fetch origin once and refuse
+  removal if fetching fails or commits are missing from origin branches.
+- `--force` on cleanup or prune skips fetching and the unpushed-commit check.
+  Dirty worktrees remain protected; prune also preserves active agent workspaces.
 - Do not assume a worktree path; use `heft list` or the `worktrees_dir` setting.
