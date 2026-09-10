@@ -31,7 +31,7 @@ func TestConfigure(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if want := "worktrees_dir: trees\nbase_branch: develop\nworkspace_prefix: \"" + filepath.Base(dir) + "\"\ntabs:\n    - name: codex\n      command: codex\n      agent: true\n    - name: shell\n"; string(data) != want {
+	if want := "worktrees_dir: trees\nbase_branch: develop\nworkspace_prefix: \"" + filepath.Base(dir) + "\"\ntabs:\n    - name: codex\n      command: codex --yolo\n      agent: true\n    - name: shell\n"; string(data) != want {
 		t.Fatalf("config = %q, want %q", data, want)
 	}
 	assertFileContents(t, filepath.Join(dir, ".gitignore"), "/vendor/\n/trees/\n")
@@ -43,7 +43,7 @@ func TestConfigure(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if want := "worktrees_dir: new trees\nbase_branch: develop\nworkspace_prefix: custom\ntabs:\n    - name: codex\n      command: codex\n      agent: true\n    - name: shell\n"; string(data) != want {
+	if want := "worktrees_dir: new trees\nbase_branch: develop\nworkspace_prefix: custom\ntabs:\n    - name: codex\n      command: codex --yolo\n      agent: true\n    - name: shell\n"; string(data) != want {
 		t.Fatalf("reconfigured config = %q, want %q", data, want)
 	}
 	assertFileContents(t, filepath.Join(dir, ".gitignore"), "/vendor/\n/trees/\n/new trees/\n")
@@ -74,6 +74,93 @@ func TestConfigureHarnessChoices(t *testing.T) {
 			}
 			if !strings.Contains(string(data), "    - name: "+test.want+"\n      agent: true\n    - name: shell\n") {
 				t.Fatalf("unexpected config %q", data)
+			}
+		})
+	}
+}
+
+func TestDefaultBaseBranch(t *testing.T) {
+	for _, test := range []struct {
+		name string
+		refs []string
+		head string
+		want string
+	}{
+		{"origin HEAD", []string{"refs/remotes/origin/release/stable", "refs/remotes/origin/main"}, "refs/remotes/origin/release/stable", "release/stable"},
+		{"origin main", []string{"refs/remotes/origin/main", "refs/remotes/origin/master"}, "", "main"},
+		{"origin master before local main", []string{"refs/remotes/origin/master", "refs/heads/main"}, "", "master"},
+		{"local main", []string{"refs/heads/main", "refs/heads/master"}, "", "main"},
+		{"local master", []string{"refs/heads/master"}, "", "master"},
+		{"no candidate", nil, "", "main"},
+		{"dangling origin HEAD", []string{"refs/remotes/origin/master"}, "refs/remotes/origin/missing", "master"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			repo := gitRepo(t)
+			gitRun(t, repo, "symbolic-ref", "HEAD", "refs/heads/feature")
+			gitRun(t, repo, "-c", "user.name=Test", "-c", "user.email=test@example.com", "commit", "--allow-empty", "-qm", "initial")
+			for _, ref := range test.refs {
+				gitRun(t, repo, "update-ref", ref, "HEAD")
+			}
+			if test.head != "" {
+				gitRun(t, repo, "symbolic-ref", "refs/remotes/origin/HEAD", test.head)
+			}
+			cmd := New("test")
+			cmd.SetContext(t.Context())
+			if got := defaultBaseBranch(cmd, repo); got != test.want {
+				t.Fatalf("default base branch = %q, want %q", got, test.want)
+			}
+		})
+	}
+}
+
+func TestSetupDetectsBaseBranch(t *testing.T) {
+	for _, command := range []string{"init", "configure"} {
+		t.Run(command, func(t *testing.T) {
+			repo := workRepo(t)
+			gitRun(t, repo, "update-ref", "refs/remotes/origin/release/stable", "HEAD")
+			gitRun(t, repo, "symbolic-ref", "refs/remotes/origin/HEAD", "refs/remotes/origin/release/stable")
+			root := filepath.Join(t.TempDir(), "linked")
+			gitRun(t, repo, "worktree", "add", "-qb", "feature", root)
+			t.Chdir(root)
+			installHerdr(t)
+			stdout, _, err := executeWithInput(t, "\n\n\n2\n", command)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !strings.Contains(stdout, "Base branch [release/stable]:") {
+				t.Fatalf("unexpected setup output %q", stdout)
+			}
+			path := filepath.Join(root, ".heft.yaml")
+			cfg, err := readConfig(path)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if cfg.BaseBranch != "release/stable" || cfg.Tabs[0].Command != "codex --yolo" {
+				t.Fatalf("unexpected config %+v", cfg)
+			}
+
+			for _, test := range []struct {
+				name, config, input, want string
+			}{
+				{"missing base", "worktrees_dir: trees\n", "\n\n\n2\n", "release/stable"},
+				{"existing base", "worktrees_dir: trees\nbase_branch: develop\n", "\n\n\n2\n", "develop"},
+				{"override", "worktrees_dir: trees\n", "\ndevelop\n\n2\n", "develop"},
+			} {
+				t.Run(test.name, func(t *testing.T) {
+					if err := os.WriteFile(path, []byte(test.config), 0o644); err != nil {
+						t.Fatal(err)
+					}
+					if _, _, err := executeWithInput(t, test.input, "configure"); err != nil {
+						t.Fatal(err)
+					}
+					cfg, err := readConfig(path)
+					if err != nil {
+						t.Fatal(err)
+					}
+					if cfg.BaseBranch != test.want {
+						t.Fatalf("base branch = %q, want %q", cfg.BaseBranch, test.want)
+					}
+				})
 			}
 		})
 	}
