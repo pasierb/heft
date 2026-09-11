@@ -66,6 +66,31 @@ If the branch already exists locally or on `origin`, heft reuses it.
 If its worktree already exists at the configured path, heft reuses it without
 changing its files or commits. Each invocation opens a new Herdr workspace and
 runs the configured tabs and any supplied prompt.
+
+To bring local setup files into new worktrees, add `.heftcopy` in the primary
+checkout:
+
+```text
+# Local setup
+.heft.yaml
+.env
+.local/
+```
+
+List one checkout-relative file or directory per line. Blank lines and lines
+starting with `#` are ignored; surrounding whitespace is trimmed. Paths are
+literal, with no globbing or exclusions. Directories copy recursively, including
+hidden files, and file permissions are preserved. Files come from the primary
+checkout, even when running Heft inside another worktree.
+
+Copying happens before Herdr opens, only for newly created worktrees. Existing
+destination files are kept and directories are merged. Missing sources and copy
+errors produce warnings without preventing the workspace from opening. Absolute
+paths, parent traversal, Git metadata, directories containing the destination,
+and symlinks are not supported. Git ignore rules are unchanged: list files in
+`.gitignore` separately if they should stay untracked. No files are copied
+automatically, and an absent `.heftcopy` changes nothing.
+
 Use `--label` to override the workspace label derived from the configured prefix
 and branch name:
 
