@@ -2,13 +2,8 @@
 
 # heft
 
-`heft` helps you work on several tasks at once with Git worktrees and Herdr.
-It gives each task a branch, a worktree, and a Herdr workspace, following one
-consistent workflow that is easy to use from scripts.
-
-Pass a prompt when you create the worktree and heft will start your agent there.
-Your current workspace stays open, so you can move between tasks without
-shuffling branches or local changes.
+`heft` gives each task a Git branch, worktree, and Herdr workspace.
+Pass a prompt to start your agent there. Your current workspace stays open.
 
 ![Several hefts grazing across shared hills](assets/heft-concept.jpg)
 
@@ -16,8 +11,6 @@ shuffling branches or local changes.
 
 - Git
 - Herdr
-- curl, tar, and sha256sum to install a release
-- Go 1.26 or newer only when building from source
 
 ## Quick start
 
@@ -27,48 +20,36 @@ Install the latest release for the current user:
 curl -fsSL https://raw.githubusercontent.com/pasierb/heft/main/install.sh | sh
 ```
 
-To build and install from source instead:
+## Agent skill
 
-```sh
-make install
-```
-
-### Agent skill
-
-Install the heft skill for your coding agent:
+Teach your coding agent when and how to use heft:
 
 ```sh
 npx skills add pasierb/heft --skill heft --global
 ```
 
-The skill teaches agents when and how to use heft for task-focused worktrees.
-
-Initialize it in a Git repository:
+## Usage
 
 ```sh
 heft init
-```
-
-Commands can run from any worktree or its subdirectories. Heft uses the primary
-checkout's `.heft.yaml` and resolves worktree paths relative to that checkout.
-Worktree-local configuration is ignored; `init` and `configure` update the primary
-checkout's configuration and `.gitignore`.
-
-Create a worktree and Herdr workspace for a task:
-
-```sh
 heft work feature/abc
+heft list
+heft cleanup feature/abc
+heft prune
 ```
 
-Heft fetches `origin`, creates `feature/abc` from the configured base branch,
-checks it out at `.worktrees/feature_abc`, and opens a Herdr workspace there.
-If the branch already exists locally or on `origin`, heft reuses it.
-If its worktree already exists at the configured path, heft reuses it without
-changing its files or commits. Each invocation opens a new Herdr workspace and
-runs the configured tabs and any supplied prompt.
+`work` fetches `origin`, branches from the configured base, and opens a Herdr
+workspace at `.worktrees/feature_abc`. Existing local or remote branches and
+worktrees are reused without changing their files or commits. Every run opens a
+new workspace with the configured tabs.
 
-To bring local setup files into new worktrees, add `.heftcopy` in the primary
-checkout:
+Run commands from any worktree or subdirectory. Paths and `.heft.yaml` resolve
+from the primary checkout; linked-worktree config is ignored. Both `init` and
+`configure` update the primary checkout's config and `.gitignore`.
+
+### Local files
+
+Add `.heftcopy` to the primary checkout to copy local files into new worktrees:
 
 ```text
 # Local setup
@@ -77,92 +58,50 @@ checkout:
 .local/
 ```
 
-List one checkout-relative file or directory per line. Blank lines and lines
-starting with `#` are ignored; surrounding whitespace is trimmed. Paths are
-literal, with no globbing or exclusions. Directories copy recursively, including
-hidden files, and file permissions are preserved. Files come from the primary
-checkout, even when running Heft inside another worktree.
+Paths are literal and relative to the primary checkout. Blank lines and `#`
+comments are ignored; surrounding whitespace is trimmed. Directories copy
+recursively, including hidden files and permissions. Existing files are kept
+and directories merged. Copying runs before Herdr opens; failures warn but don't
+block it. Nothing is copied without `.heftcopy`.
 
-Copying happens before Herdr opens, only for newly created worktrees. Existing
-destination files are kept and directories are merged. Missing sources and copy
-errors produce warnings without preventing the workspace from opening. Absolute
-paths, parent traversal, Git metadata, directories containing the destination,
-and symlinks are not supported. Git ignore rules are unchanged: list files in
-`.gitignore` separately if they should stay untracked. No files are copied
-automatically, and an absent `.heftcopy` changes nothing.
+No globbing, exclusions, absolute paths, parent traversal, Git metadata,
+symlinks, or directories containing the destination. Add entries to `.gitignore`
+separately to keep copied files untracked.
 
-Use `--label` to override the workspace label derived from the configured prefix
-and branch name:
+### Cleanup
 
-```sh
-heft work feature/abc --label "ticket 39"
-```
+`cleanup` and `prune` remove only clean worktrees (including no untracked files)
+whose commits exist on any origin branch. Both fetch origin first and stop if
+it's unavailable. No upstream or matching branch name is required; squash merges
+may leave original commits protected.
 
-List the repository's worktrees:
+Local branches and the primary checkout stay. `prune` also skips active agent
+workspaces, but can remove the worktree you're running it from.
 
-```sh
-heft list
-```
-
-Remove a worktree when it has no staged, unstaged, or untracked changes and
-all its commits exist on an origin branch:
-
-```sh
-heft cleanup feature/abc
-```
-
-The local branch is preserved. To remove all eligible linked worktrees while
-leaving dirty worktrees, worktrees with unpushed commits, active agent workspaces,
-and local branches untouched, run:
-
-```sh
-heft prune
-```
-
-Pruning from inside a linked worktree includes that worktree when eligible.
-The primary checkout is always preserved.
-
-Both commands fetch origin once and refresh its branch references before removal.
-A missing or unreachable origin prevents removal. No upstream or same-name remote
-branch is required: commits may exist on any origin branch. Squash-merged commits
-remain protected if their original commits no longer exist on origin.
-
-Use `heft cleanup <branch> --force` or `heft prune --force` to skip the fetch and
-unpushed-commit check, including when offline. Dirty worktrees remain protected,
-and forced pruning still preserves active agent workspaces.
+`--force` skips fetching and checking for unpushed commits, allowing offline
+removal. It still protects dirty worktrees; pruning still skips active agents.
 
 ## Scriptable workflows
 
-Small project-specific commands can wrap `heft work`. For example, this
-repository has a Make target for starting work on a Fizzy card:
-
-```sh
-make work-on-fizzy 33
-```
-
-The target runs the equivalent of:
-
 ```sh
 heft work fizzy-33 --prompt="Check the fizzy card id=33, analyze it and prepare solution plan"
-```
-
-Heft creates the worktree and workspace, starts the command configured for the
-first tab, waits for Herdr to recognize the agent, then sends the prompt. The
-command returns once Herdr accepts the prompt. The agent continues working in
-its new workspace.
-
-Use `--no-focus` when a script should keep the current workspace focused:
-
-```sh
 heft work feature/abc --no-focus
+heft work feature/abc --label "ticket 39"
 ```
+
+`--prompt` starts the configured agent, waits for Herdr to recognize it, and
+returns once Herdr accepts the prompt. The agent keeps running in its workspace.
+`--no-focus` keeps your current workspace focused; `--label` overrides the label
+built from the configured prefix and branch name.
+
+This repository's `make work-on-fizzy 33` wraps the prompt command above.
 
 ## Configuration
 
-`heft init` creates `.heft.yaml` at the Git project root and prompts for each
-setting, including a default Claude, Codex, Agy, or custom agent command. Run
-`heft configure` later to change the other settings. The harness prompt is
-skipped once an agent tab is configured.
+`heft init` creates `.heft.yaml` and prompts for settings, including a Claude,
+Codex, Agy, or custom agent command. `heft configure` updates settings, keeping
+existing agent commands and the saved base branch default. Once an agent tab is
+configured, heft skips agent selection.
 
 ```yaml
 worktrees_dir: .worktrees
@@ -183,30 +122,20 @@ profiles:
         command: nvim
 ```
 
-- `worktrees_dir` controls where worktrees are stored. The default is
-  `.worktrees`; heft also adds the directory to `.gitignore`.
-- `base_branch` is the branch used for new worktrees. Setup suggests the branch
-  referenced by local `origin/HEAD`. If unavailable, it checks `origin/main`,
-  `origin/master`, local `main`, then local `master`, falling back to `main`.
-  Detection runs offline, and the prompt lets you override the suggestion.
-- `workspace_prefix` prefixes Herdr workspace names. It defaults to the
-  repository name, producing names such as `heft feature/abc`.
-- `tabs` is an ordered list of Herdr tabs. Each tab needs a `name`; an optional
-  `command` runs in its root pane. Mark one command tab with `agent: true` to
-  make it the target for `--prompt`.
-- `profiles` contains named alternative tab configurations. Select one with
-  `heft work <branch> --profile <name>`; without the flag, heft uses `tabs`.
+- `worktrees_dir`: defaults to `.worktrees`, added to `.gitignore`.
+- `base_branch`: base for new branches. Suggested offline from local
+  `origin/HEAD`, then `origin/main`, `origin/master`, local `main`, local `master`,
+  or finally `main`. Override at the prompt.
+- `workspace_prefix`: defaults to the repository name, e.g. `heft feature/abc`.
+- `tabs`: ordered tabs with a required `name` and optional `command` run in the
+  root pane. Mark one with `agent: true` for `--prompt`; its command must start
+  an agent Herdr recognizes. Without `tabs`, Herdr opens its default tab.
+- `profiles`: alternative tabs selected with `heft work <branch> --profile <name>`.
+  Otherwise, heft uses `tabs`.
 
-With no `tabs` setting, heft creates one Herdr workspace with its default tab.
-New configuration puts the selected agent first so it is focused, followed by
-the shell tab. Selecting Codex sets its command to `codex --yolo`, which disables
-approval prompts and sandboxing. Reconfiguring preserves existing agent commands
-and offers the saved base branch as the default. Choosing `Other` stores the
-entered shell command and names the tab after its executable. Any extra tabs open
-in the background.
-
-`--prompt` requires a configured tab marked with `agent: true` to start a
-Herdr-recognized agent. In the example above, that is `codex`.
+Setup focuses the agent tab, followed by a shell tab; extra tabs open in the
+background. Codex defaults to `codex --yolo`, disabling approval prompts and
+sandboxing. `Other` stores your command and names the tab after its executable.
 
 ## Commands
 
@@ -227,12 +156,15 @@ Run `heft <command> --help` for command-specific usage.
 
 ## Development
 
+Building from source requires Go 1.26 or newer.
+
 ```sh
+make install # build and install from source
 make build   # build bin/heft
 make run     # run without installing
 make test    # run the test suite
 make test-e2e # test installation and every command in Docker with real Herdr
 ```
 
-`make build` derives the version from Git. Direct `go build` invocations report
-`dev` unless a version is supplied with `-ldflags "-X main.version=<version>"`.
+`make build` gets the version from Git. Running `go build` directly reports
+`dev` unless you supply a version with `-ldflags "-X main.version=<version>"`.
