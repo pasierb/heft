@@ -41,10 +41,27 @@ git -C /tmp/project commit -m initial
 git -C /tmp/project remote add origin /tmp/origin.git
 git -C /tmp/project push -u origin main
 
+# Operational commands must reject ordinary terminals before touching the repo.
 cd /tmp/project
-printf 'trees\n\n\n4\nsh\n' | heft init
+if env -u HERDR_WORKSPACE_ID heft configure >/tmp/outside.log 2>&1; then
+    echo "configure unexpectedly ran outside Herdr" >&2
+    exit 1
+fi
+grep -q 'inside a Herdr terminal' /tmp/outside.log
+test ! -e .heft.yaml
+test ! -e .gitignore
+
+cat > /tmp/workflow.sh <<'WORKFLOW'
+#!/bin/sh
+set -eu
+export PATH="/tmp/home/.local/bin:$PATH"
+cd /tmp/project
+printf 'trees\n\n\n4\nsh\n' | heft configure
 grep -q 'command: sh' .heft.yaml
 printf '\n\n\n' | heft configure
+printf 'renamed-trees\n\n\n' | heft init
+grep -q 'worktrees_dir: renamed-trees' .heft.yaml
+printf 'trees\n\n\n' | heft configure
 
 heft work cleanup-me --label "e2e cleanup" --no-focus
 test -d trees/cleanup-me
@@ -110,3 +127,15 @@ heft cleanup unpushed --force
 test ! -e trees/unpushed
 ! herdr worktree list --cwd /tmp/project | grep -q '"branch":"unpushed"'
 git show-ref --verify refs/heads/unpushed
+
+WORKFLOW
+pane_id=$(herdr workspace create --cwd /tmp/project --label "e2e runner" --no-focus | node -e '
+console.log(JSON.parse(require("fs").readFileSync(0, "utf8")).result.root_pane.pane_id);
+')
+herdr pane run "$pane_id" 'sh /tmp/workflow.sh > /tmp/workflow.log 2>&1; echo $? > /tmp/workflow.status'
+if ! timeout 60 sh -c 'until [ -s /tmp/workflow.status ]; do sleep 0.1; done'; then
+    cat /tmp/workflow.log /tmp/herdr.log
+    exit 1
+fi
+cat /tmp/workflow.log
+[ "$(cat /tmp/workflow.status)" = 0 ]

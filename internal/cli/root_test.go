@@ -1,8 +1,11 @@
 package cli
 
 import (
+	"os"
 	"strings"
 	"testing"
+
+	"github.com/spf13/cobra"
 )
 
 func TestRootShowsHelp(t *testing.T) {
@@ -21,7 +24,7 @@ func TestCommandHelpExplainsBehaviorAndShowsExample(t *testing.T) {
 		want    []string
 	}{
 		{"", []string{"matching Herdr workspaces", "heft work feature/login"}},
-		{"init", []string{".heft.yaml does not exist", "heft init"}},
+		{"init", []string{"create or update .heft.yaml", "heft init"}},
 		{"configure", []string{"Existing values are offered as defaults", "heft configure"}},
 		{"work", []string{"New branches start from origin/<base_branch>", "heft work fizzy-40 --prompt"}},
 		{"list", []string{"registered with the current Git repository", "heft list"}},
@@ -66,5 +69,61 @@ func TestUnknownCommand(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), `unknown command "unknown"`) {
 		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestHerdrGuard(t *testing.T) {
+	for _, args := range [][]string{{"configure"}, {"init"}, {"work", "task"}, {"list"}, {"cleanup", "task"}, {"prune"}} {
+		for _, scenario := range []struct {
+			name, workspace, want string
+			installed             bool
+		}{
+			{"missing executable", "w1", "Herdr is not installed", false},
+			{"missing context", "", "inside a Herdr terminal", true},
+			{"blank context", " \t", "inside a Herdr terminal", true},
+			{"inside Herdr", "w1", "", true},
+		} {
+			t.Run(args[0]+"/"+scenario.name, func(t *testing.T) {
+				dir := t.TempDir()
+				t.Chdir(dir)
+				t.Setenv("PATH", t.TempDir())
+				if scenario.installed {
+					installHerdr(t)
+				}
+				t.Setenv("HERDR_WORKSPACE_ID", scenario.workspace)
+				root := New("test")
+				command, _, err := root.Find(args)
+				if err != nil {
+					t.Fatal(err)
+				}
+				ran := false
+				if scenario.want == "" {
+					command.RunE = func(*cobra.Command, []string) error { ran = true; return nil }
+				}
+				root.SetArgs(args)
+				err = root.Execute()
+				if scenario.want == "" {
+					if err != nil || !ran {
+						t.Fatalf("command did not run: %v", err)
+					}
+				} else if err == nil || !strings.Contains(err.Error(), scenario.want) {
+					t.Fatalf("error = %v, want %q", err, scenario.want)
+				}
+				entries, err := os.ReadDir(dir)
+				if err != nil || len(entries) != 0 {
+					t.Fatalf("unexpected changes: %v, %v", entries, err)
+				}
+			})
+		}
+	}
+}
+
+func TestInformationalCommandsOutsideHerdr(t *testing.T) {
+	t.Setenv("PATH", t.TempDir())
+	t.Setenv("HERDR_WORKSPACE_ID", "")
+	for _, args := range [][]string{nil, {"--help"}, {"version"}, {"--version"}, {"completion", "bash"}, {"__complete", ""}, {"configure", "--help"}, {"init", "--help"}, {"work", "--help"}, {"list", "--help"}, {"cleanup", "--help"}, {"prune", "--help"}} {
+		if _, _, err := execute(t, args...); err != nil {
+			t.Fatalf("%v: %v", args, err)
+		}
 	}
 }
