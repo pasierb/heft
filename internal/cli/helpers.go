@@ -22,6 +22,15 @@ func projectRoot() (string, error) {
 	if !ok || !filepath.IsAbs(root) || slices.Contains(fields, "bare") {
 		return "", fmt.Errorf("find project root: repository has no primary checkout")
 	}
+	// Submodules list their Git metadata directory rather than their checkout.
+	out, err = exec.Command("git", "-C", root, "rev-parse", "--show-toplevel").Output()
+	if err != nil {
+		return "", fmt.Errorf("find project root: resolve primary checkout: %w", err)
+	}
+	root = strings.TrimSuffix(string(out), "\n")
+	if !filepath.IsAbs(root) {
+		return "", fmt.Errorf("find project root: primary checkout path is not absolute: %q", root)
+	}
 	info, err := os.Stat(root)
 	if err != nil {
 		return "", fmt.Errorf("find project root: %w", err)
