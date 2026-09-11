@@ -16,8 +16,6 @@ shuffling branches or local changes.
 
 - Git
 - Herdr
-- curl, tar, and sha256sum to install a release
-- Go 1.26 or newer only when building from source
 
 ## Quick start
 
@@ -27,13 +25,7 @@ Install the latest release for the current user:
 curl -fsSL https://raw.githubusercontent.com/pasierb/heft/main/install.sh | sh
 ```
 
-To build and install from source instead:
-
-```sh
-make install
-```
-
-### Agent skill
+## Agent skill
 
 Install the heft skill for your coding agent:
 
@@ -42,6 +34,8 @@ npx skills add pasierb/heft --skill heft --global
 ```
 
 The skill teaches agents when and how to use heft for task-focused worktrees.
+
+## Usage
 
 Initialize it in a Git repository:
 
@@ -227,7 +221,10 @@ Run `heft <command> --help` for command-specific usage.
 
 ## Development
 
+Building from source requires Go 1.26 or newer.
+
 ```sh
+make install # build and install from source
 make build   # build bin/heft
 make run     # run without installing
 make test    # run the test suite
