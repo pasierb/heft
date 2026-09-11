@@ -41,14 +41,15 @@ the workspace opens. Existing files are preserved; copy errors warn and continue
 			if err != nil {
 				return err
 			}
-			cfg, err := readConfig(filepath.Join(root, ".heft.yaml"))
+			configPath := filepath.Join(root, ".heft.yaml")
+			cfg, err := readConfig(configPath)
 			if err != nil {
 				return err
 			}
 			if profileName != "" {
 				profile, ok := cfg.Profiles[profileName]
 				if !ok {
-					return fmt.Errorf("profile %q is not configured", profileName)
+					return fmt.Errorf("profile %q is not configured in %s", profileName, configPath)
 				}
 				cfg.Tabs = profile.Tabs
 			}
