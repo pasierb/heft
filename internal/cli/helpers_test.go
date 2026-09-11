@@ -140,3 +140,45 @@ func TestProjectRootRejectsBareRepository(t *testing.T) {
 		t.Fatal("expected an error for a repository without a primary checkout")
 	}
 }
+
+func TestSubmoduleRootAndProfileAcrossWorktrees(t *testing.T) {
+	source := workRepo(t)
+	parent := gitRepo(t)
+	gitRun(t, parent, "-c", "protocol.file.allow=always", "submodule", "add", source, "packages/module")
+	repo := filepath.Join(parent, "packages/module")
+	linked := filepath.Join(t.TempDir(), "linked")
+	gitRun(t, repo, "worktree", "add", "-qb", "linked", linked)
+	writeCopyFile(t, repo, ".heft.yaml", "worktrees_dir: trees\nbase_branch: main\nprofiles:\n  fable:\n    tabs:\n      - name: fable-shell\n")
+	writeCopyFile(t, linked, ".heft.yaml", "invalid: [")
+	installHerdrForTabs(t)
+	log := filepath.Join(t.TempDir(), "herdr.log")
+	t.Setenv("HERDR_TEST_LOG", log)
+	for name, base := range map[string]string{"primary": repo, "linked": linked} {
+		t.Run(name, func(t *testing.T) {
+			nested := filepath.Join(base, "nested")
+			if err := os.Mkdir(nested, 0o755); err != nil {
+				t.Fatal(err)
+			}
+			for _, dir := range []string{base, nested} {
+				t.Chdir(dir)
+				got, err := projectRoot()
+				if err != nil || got != repo {
+					t.Fatalf("projectRoot() = %q, %v; want %q", got, err, repo)
+				}
+			}
+			if _, _, err := execute(t, "work", "feature-"+name, "--profile", "fable"); err != nil {
+				t.Fatal(err)
+			}
+			if got := gitRun(t, filepath.Join(repo, "trees", "feature-"+name), "branch", "--show-current"); got != "feature-"+name {
+				t.Fatalf("unexpected branch: %q", got)
+			}
+		})
+	}
+	calls, err := os.ReadFile(log)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Count(string(calls), "tab\nrename\nt1\nfable-shell\n") != 2 {
+		t.Fatalf("profile tabs were not opened: %s", calls)
+	}
+}

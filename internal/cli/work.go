@@ -28,7 +28,10 @@ and open a matching Herdr workspace.
 
 New branches start from origin/<base_branch>. Existing local or remote branches
 and matching worktrees at the configured path are reused. Each invocation opens
-a new workspace. Use --prompt to send work directly to a configured agent tab.`,
+a new workspace. Use --prompt to send work directly to a configured agent tab.
+
+New worktrees receive files listed in the primary checkout's .heftcopy before
+the workspace opens. Existing files are preserved; copy errors warn and continue.`,
 		Example: `  heft work feature/login
   heft work fizzy-40 --prompt "Analyze card 40 and implement it"
   heft work bugfix/session --profile research --no-focus`,
@@ -38,14 +41,15 @@ a new workspace. Use --prompt to send work directly to a configured agent tab.`,
 			if err != nil {
 				return err
 			}
-			cfg, err := readConfig(filepath.Join(root, ".heft.yaml"))
+			configPath := filepath.Join(root, ".heft.yaml")
+			cfg, err := readConfig(configPath)
 			if err != nil {
 				return err
 			}
 			if profileName != "" {
 				profile, ok := cfg.Profiles[profileName]
 				if !ok {
-					return fmt.Errorf("profile %q is not configured", profileName)
+					return fmt.Errorf("profile %q is not configured in %s", profileName, configPath)
 				}
 				cfg.Tabs = profile.Tabs
 			}
@@ -115,6 +119,7 @@ a new workspace. Use --prompt to send work directly to a configured agent tab.`,
 				if existed != "" {
 					fmt.Fprintf(cmd.OutOrStdout(), "Branch %q already exists %s; checking it out.\n", branch, existed)
 				}
+				copyWorktreeFiles(root, path, cmd.ErrOrStderr())
 			}
 			if len(cfg.Tabs) == 0 {
 				args := []string{"workspace", "create", "--cwd", path, "--label", label}

@@ -294,10 +294,13 @@ func TestWorkCreatesProfileTabs(t *testing.T) {
 
 func TestWorkRejectsUnknownProfileBeforeSideEffects(t *testing.T) {
 	repo := workRepo(t)
-	t.Chdir(repo)
+	linked := filepath.Join(t.TempDir(), "linked")
+	gitRun(t, repo, "worktree", "add", "-qb", "linked", linked)
+	t.Chdir(linked)
 
 	_, _, err := execute(t, "work", "feature", "--profile", "missing")
-	if err == nil || err.Error() != `profile "missing" is not configured` {
+	want := `profile "missing" is not configured in ` + filepath.Join(repo, ".heft.yaml")
+	if err == nil || err.Error() != want {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	if _, err := os.Stat(filepath.Join(repo, ".gitignore")); !os.IsNotExist(err) {
