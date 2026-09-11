@@ -10,7 +10,7 @@ Pass a prompt to start your agent there. Your current workspace stays open.
 ## Requirements
 
 - Git
-- Herdr
+- Herdr installed and commands run inside a Herdr terminal
 
 ## Quick start
 
@@ -30,8 +30,11 @@ npx skills add pasierb/heft --skill heft --global
 
 ## Usage
 
+Open a Herdr terminal and enter your Git repository before running these commands.
+Help, version, and shell completion are available outside Herdr.
+
 ```sh
-heft init
+heft configure
 heft work feature/abc
 heft list
 heft cleanup feature/abc
@@ -44,8 +47,8 @@ worktrees are reused without changing their files or commits. Every run opens a
 new workspace with the configured tabs.
 
 Run commands from any worktree or subdirectory. Paths and `.heft.yaml` resolve
-from the primary checkout; linked-worktree config is ignored. Both `init` and
-`configure` update the primary checkout's config and `.gitignore`.
+from the primary checkout; linked-worktree config is ignored. `configure` (also
+available as `init`) updates the primary checkout's config and `.gitignore`.
 
 ### Local files
 
@@ -98,8 +101,8 @@ This repository's `make work-on-fizzy 33` wraps the prompt command above.
 
 ## Configuration
 
-`heft init` creates `.heft.yaml` and prompts for settings, including a Claude,
-Codex, Agy, or custom agent command. `heft configure` updates settings, keeping
+`heft configure` creates or updates `.heft.yaml` and prompts for settings,
+including a Claude, Codex, Agy, or custom agent command. Updates keep
 existing agent commands and the saved base branch default. Once an agent tab is
 configured, heft skips agent selection.
 
@@ -141,8 +144,8 @@ sandboxing. `Other` stores your command and names the tab after its executable.
 
 | Command | Description |
 | --- | --- |
-| `heft init` | Check for Herdr and create the project configuration |
-| `heft configure` | Update the project configuration interactively |
+| `heft init` | Alias for `heft configure`, including when configuration already exists |
+| `heft configure` | Create or update the project configuration interactively |
 | `heft work <branch>` | Create or reuse a branch, worktree, and Herdr workspace |
 | `heft work <branch> --label <text>` | Set a custom Herdr workspace label |
 | `heft work <branch> --prompt <text>` | Start and prompt the configured agent tab |

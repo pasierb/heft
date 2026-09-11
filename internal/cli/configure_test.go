@@ -9,48 +9,52 @@ import (
 )
 
 func TestConfigure(t *testing.T) {
-	dir := gitRepo(t)
-	nested := filepath.Join(dir, "nested")
-	if err := os.Mkdir(nested, 0o755); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(filepath.Join(dir, ".gitignore"), []byte("/vendor/"), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	t.Chdir(nested)
+	for _, command := range []string{"configure", "init"} {
+		t.Run(command, func(t *testing.T) {
+			dir := gitRepo(t)
+			nested := filepath.Join(dir, "nested")
+			if err := os.Mkdir(nested, 0o755); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(filepath.Join(dir, ".gitignore"), []byte("/vendor/"), 0o644); err != nil {
+				t.Fatal(err)
+			}
+			t.Chdir(nested)
 
-	stdout, _, err := executeWithInput(t, "trees\ndevelop\n\n2\n", "configure")
-	if err != nil {
-		t.Fatalf("execute configure command: %v", err)
-	}
-	if want := "Worktrees directory [.worktrees]: Base branch [main]: Workspace prefix [" + filepath.Base(dir) + "]: Default harness:\n  1) Claude\n  2) Codex\n  3) Agy\n  4) Other\nSelect [1-4]: "; stdout != want {
-		t.Fatalf("configure output = %q, want %q", stdout, want)
-	}
-	path := filepath.Join(dir, ".heft.yaml")
-	data, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if want := "worktrees_dir: trees\nbase_branch: develop\nworkspace_prefix: \"" + filepath.Base(dir) + "\"\ntabs:\n    - name: codex\n      command: codex --yolo\n      agent: true\n    - name: shell\n"; string(data) != want {
-		t.Fatalf("config = %q, want %q", data, want)
-	}
-	assertFileContents(t, filepath.Join(dir, ".gitignore"), "/vendor/\n/trees/\n")
+			stdout, _, err := executeWithInput(t, "trees\ndevelop\n\n2\n", command)
+			if err != nil {
+				t.Fatalf("execute configure command: %v", err)
+			}
+			if want := "Worktrees directory [.worktrees]: Base branch [main]: Workspace prefix [" + filepath.Base(dir) + "]: Default harness:\n  1) Claude\n  2) Codex\n  3) Agy\n  4) Other\nSelect [1-4]: "; stdout != want {
+				t.Fatalf("configure output = %q, want %q", stdout, want)
+			}
+			path := filepath.Join(dir, ".heft.yaml")
+			data, err := os.ReadFile(path)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if want := "worktrees_dir: trees\nbase_branch: develop\nworkspace_prefix: \"" + filepath.Base(dir) + "\"\ntabs:\n    - name: codex\n      command: codex --yolo\n      agent: true\n    - name: shell\n"; string(data) != want {
+				t.Fatalf("config = %q, want %q", data, want)
+			}
+			assertFileContents(t, filepath.Join(dir, ".gitignore"), "/vendor/\n/trees/\n")
 
-	if _, _, err := executeWithInput(t, "new trees\n\n custom \n", "configure"); err != nil {
-		t.Fatalf("reconfigure: %v", err)
+			if _, _, err := executeWithInput(t, "new trees\n\n custom \n", command); err != nil {
+				t.Fatalf("reconfigure: %v", err)
+			}
+			data, err = os.ReadFile(path)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if want := "worktrees_dir: new trees\nbase_branch: develop\nworkspace_prefix: custom\ntabs:\n    - name: codex\n      command: codex --yolo\n      agent: true\n    - name: shell\n"; string(data) != want {
+				t.Fatalf("reconfigured config = %q, want %q", data, want)
+			}
+			assertFileContents(t, filepath.Join(dir, ".gitignore"), "/vendor/\n/trees/\n/new trees/\n")
+			if _, _, err := executeWithInput(t, "\n\n", command); err != nil {
+				t.Fatalf("configure without changes: %v", err)
+			}
+			assertFileContents(t, filepath.Join(dir, ".gitignore"), "/vendor/\n/trees/\n/new trees/\n")
+		})
 	}
-	data, err = os.ReadFile(path)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if want := "worktrees_dir: new trees\nbase_branch: develop\nworkspace_prefix: custom\ntabs:\n    - name: codex\n      command: codex --yolo\n      agent: true\n    - name: shell\n"; string(data) != want {
-		t.Fatalf("reconfigured config = %q, want %q", data, want)
-	}
-	assertFileContents(t, filepath.Join(dir, ".gitignore"), "/vendor/\n/trees/\n/new trees/\n")
-	if _, _, err := executeWithInput(t, "\n\n", "configure"); err != nil {
-		t.Fatalf("configure without changes: %v", err)
-	}
-	assertFileContents(t, filepath.Join(dir, ".gitignore"), "/vendor/\n/trees/\n/new trees/\n")
 }
 
 func TestConfigureHarnessChoices(t *testing.T) {
@@ -280,6 +284,8 @@ func TestConfigureRejectsInvalidConfig(t *testing.T) {
 }
 
 func TestConfigureOutsideGitRepository(t *testing.T) {
+	installHerdr(t)
+	t.Setenv("HERDR_WORKSPACE_ID", "test-workspace")
 	t.Chdir(t.TempDir())
 	if _, _, err := execute(t, "configure"); err == nil || !strings.Contains(err.Error(), "find project root") {
 		t.Fatalf("unexpected error: %v", err)

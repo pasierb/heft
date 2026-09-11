@@ -30,6 +30,11 @@ func executeWithInput(t *testing.T, input string, args ...string) (string, strin
 
 func gitRepo(t *testing.T) string {
 	t.Helper()
+	originalPath := os.Getenv("PATH")
+	bin := installHerdr(t)
+	// Keep command-specific Herdr stubs ahead of this fallback.
+	t.Setenv("PATH", originalPath+string(os.PathListSeparator)+bin)
+	t.Setenv("HERDR_WORKSPACE_ID", "test-workspace")
 	dir := t.TempDir()
 	cmd := exec.Command("git", "init", "-q", dir)
 	if out, err := cmd.CombinedOutput(); err != nil {
@@ -65,7 +70,7 @@ func TestRepositoryNameIsStableAcrossWorktrees(t *testing.T) {
 	}
 }
 
-func installHerdr(t *testing.T) {
+func installHerdr(t *testing.T) string {
 	t.Helper()
 	dir := t.TempDir()
 	herdr := filepath.Join(dir, "herdr")
@@ -74,6 +79,7 @@ func installHerdr(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Setenv("PATH", dir+string(os.PathListSeparator)+os.Getenv("PATH"))
+	return dir
 }
 
 func installHerdrForTabs(t *testing.T) {

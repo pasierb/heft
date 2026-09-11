@@ -11,9 +11,9 @@ Use `heft` instead of coordinating Git worktrees and Herdr workspaces separately
 
 1. Confirm the current directory belongs to a Git repository and inspect
    `.heft.yaml` when it exists. Use `heft <command> --help` for exact flags.
-2. Run `heft init` once per repository. It checks for Herdr, creates
-   `.heft.yaml`, and adds the configured worktree directory to `.gitignore`.
-   Use `heft configure` to update existing settings.
+2. Run heft inside a Herdr terminal with `herdr` on PATH. Use `heft configure`
+   to create or update `.heft.yaml` and add the worktree directory to `.gitignore`.
+   `heft init` is an alias and also prompts when configuration already exists.
 3. Start a task with `heft work <branch>`. Add `--label <text>` to override the
    Herdr workspace label, `--no-focus` to keep the current workspace focused,
    or `--prompt <text>` to prompt the configured agent tab.

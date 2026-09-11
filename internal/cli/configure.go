@@ -37,13 +37,14 @@ type tab struct {
 
 func newConfigureCommand() *cobra.Command {
 	return &cobra.Command{
-		Use:   "configure",
-		Short: "Configure heft",
-		Long: `Interactively update .heft.yaml at the Git repository root.
+		Use:     "configure",
+		Aliases: []string{"init"},
+		Short:   "Configure heft",
+		Long: `Interactively create or update .heft.yaml at the Git repository root.
 
 Existing values are offered as defaults. Unknown configuration fields are
 preserved so newer settings remain intact.`,
-		Example: "  heft configure",
+		Example: "  heft configure\n  heft init",
 		Args:    cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			root, err := projectRoot()
