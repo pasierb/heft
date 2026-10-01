@@ -2,12 +2,26 @@ package cli
 
 import (
 	"bytes"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
 )
+
+func TestMain(m *testing.M) {
+	// Git resolves macOS temporary-directory symlinks; use the same paths in fixtures.
+	dir, err := filepath.EvalSymlinks(os.TempDir())
+	if err == nil {
+		err = os.Setenv("TMPDIR", dir)
+	}
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
+	os.Exit(m.Run())
+}
 
 func execute(t *testing.T, args ...string) (string, string, error) {
 	return executeWithInput(t, "", args...)

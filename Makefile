@@ -18,7 +18,8 @@ build:
 	go build -ldflags "$(LDFLAGS)" -o $(BINARY) ./cmd/heft
 
 install: build
-	install -Dm755 $(BINARY) $(HOME)/.local/bin/heft
+	mkdir -p "$(HOME)/.local/bin"
+	install -m 755 "$(BINARY)" "$(HOME)/.local/bin/heft"
 
 test:
 	go test ./...

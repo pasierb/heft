@@ -8,7 +8,11 @@ on:
 
 jobs:
   test:
-    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-15, macos-15-intel]
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-go@v7
@@ -16,4 +20,12 @@ jobs:
           go-version-file: go.mod
           cache: true
       - run: go test ./...
-      - run: make test-e2e
+      - name: Test installation
+        run: |
+          make build VERSION=v0.0.0-test
+          sh test/install.sh
+          make install VERSION=v0.0.0-test HOME="$RUNNER_TEMP/heft home" \
+            GOCACHE="$(go env GOCACHE)" GOMODCACHE="$(go env GOMODCACHE)"
+          test "$("$RUNNER_TEMP/heft home/.local/bin/heft" --version)" = "heft v0.0.0-test"
+      - if: runner.os == 'Linux'
+        run: make test-e2e
