@@ -66,8 +66,8 @@ EOF
 		: > "$tmp/release/SHA256SUMS"
 		check_install 'release checksum not found'
 	done
-	HEFT_TEST_OS=unsupported check_install 'unsupported operating system'
-	HEFT_TEST_ARCH=unsupported check_install 'unsupported architecture'
+	(HEFT_TEST_OS=unsupported check_install 'unsupported operating system')
+	(HEFT_TEST_ARCH=unsupported check_install 'unsupported architecture')
 	rm "$tmp/bin/$tool"
 done
 [ "$tested" -gt 0 ] || { echo 'Tests require sha256sum or shasum'; exit 1; }
