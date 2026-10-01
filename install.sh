@@ -9,12 +9,21 @@ fail() {
 	exit 1
 }
 
-for command in curl tar sha256sum; do
+for command in curl tar; do
 	command -v "$command" >/dev/null 2>&1 || fail "requires $command"
 done
 
+if command -v sha256sum >/dev/null 2>&1; then
+	checksum() { sha256sum "$1"; }
+elif command -v shasum >/dev/null 2>&1; then
+	checksum() { shasum -a 256 "$1"; }
+else
+	fail "requires sha256sum or shasum"
+fi
+
 case "$(uname -s)" in
 	Linux) os=linux ;;
+	Darwin) os=darwin ;;
 	*) fail "unsupported operating system: $(uname -s)" ;;
 esac
 
@@ -42,7 +51,7 @@ curl -fsSL --retry 3 "$download_url/SHA256SUMS" -o "$tmp/SHA256SUMS" || fail "ch
 
 expected=$(awk -v archive="$archive" '$2 == archive || $2 == "./" archive { print $1 }' "$tmp/SHA256SUMS")
 [ -n "$expected" ] || fail "release checksum not found"
-actual=$(sha256sum "$tmp/$archive" | awk '{ print $1 }')
+actual=$(checksum "$tmp/$archive" | awk '{ print $1 }')
 [ "$actual" = "$expected" ] || fail "checksum verification failed"
 
 tar -xzf "$tmp/$archive" -C "$tmp"

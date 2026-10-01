@@ -9,6 +9,7 @@ Pass a prompt to start your agent there. Your current workspace stays open.
 
 ## Requirements
 
+- Linux or macOS (Apple Silicon and Intel)
 - Git
 - Herdr installed and commands run inside a Herdr terminal
 
@@ -19,6 +20,10 @@ Install the latest release for the current user:
 ```sh
 curl -fsSL https://raw.githubusercontent.com/pasierb/heft/main/install.sh | sh
 ```
+
+The installer supports both platforms, verifies the download with `sha256sum`
+or macOS's `shasum`, and installs to `~/.local/bin`. Add that directory to your
+`PATH` if prompted. Herdr must be installed separately.
 
 ## Agent skill
 
