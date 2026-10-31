@@ -18,6 +18,8 @@ func New(version string) *cobra.Command {
 
 Run heft configure in a Git repository inside Herdr, then use heft work for each task.
 Commands can run from any worktree or its subdirectories.
+Herdr TUI uses herdr; standalone app terminals use hc only.
+Core mode uses automatic display names and app-controlled focus.
 Configuration is stored in .heft.yaml at the primary checkout root;
 worktree-local configuration is ignored.`,
 		Example: `  heft configure
@@ -31,6 +33,16 @@ worktree-local configuration is ignored.`,
 		PersistentPreRunE: func(cmd *cobra.Command, _ []string) error {
 			switch cmd.Name() {
 			case "configure", "work", "list", "cleanup", "prune":
+				if coreMode() {
+					var terminal coreTerminal
+					if err := coreCall(cmd, &terminal, "get", os.Getenv("HC_TERMINAL_ID")); err != nil {
+						return err
+					}
+					if terminal.Address == "" || terminal.State != "live" {
+						return fmt.Errorf("invalid HC_TERMINAL_ID")
+					}
+					return nil
+				}
 				if _, err := exec.LookPath("herdr"); err != nil {
 					return fmt.Errorf("Herdr is not installed or not in PATH; install Herdr and run heft inside it")
 				}

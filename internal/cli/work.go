@@ -121,6 +121,9 @@ the workspace opens. Existing files are preserved; copy errors warn and continue
 				}
 				copyWorktreeFiles(root, path, cmd.ErrOrStderr())
 			}
+			if coreMode() {
+				return coreWork(cmd, root, path, label, cfg.Tabs, prompt)
+			}
 			if len(cfg.Tabs) == 0 {
 				args := []string{"workspace", "create", "--cwd", path, "--label", label}
 				if noFocus {

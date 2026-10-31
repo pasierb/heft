@@ -176,3 +176,23 @@ make test-e2e # test installation and every command in Docker with real Herdr
 
 `make build` gets the version from Git. Running `go build` directly reports
 `dev` unless you supply a version with `-ldflags "-X main.version=<version>"`.
+
+
+### Standalone Herdr app through core
+
+Heft also supports Herdr core terminals with `hc` on PATH. It detects
+`HC_TERMINAL_ID` and validates it with `hc get`; this takes precedence over
+TUI detection. No `herdr-app` CLI is required. Existing configuration and
+profiles work with either integration.
+
+Core terminals receive space/tab labels for adoption by the app. Display names
+are automatic and focus is app-controlled: `--label`, `workspace_prefix`, and
+configured tab names are stored as metadata, and `--no-focus` cannot guarantee
+focus behavior. Core mode prints a notice about these limits.
+
+Use `codex --no-daemon --yolo` for Codex tabs under core so commands execute
+inside the core terminal. Heft does not rewrite saved agent commands.
+Cleanup uses Heft labels, includes matching spaces and descendants, and defers
+closing the invoking terminal until removals finish. Unmanaged layout elements
+may remain. Failed launches retain worktrees and previously created terminals;
+printed terminal addresses can be inspected with `hc get` and `hc read`.
