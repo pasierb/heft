@@ -133,6 +133,15 @@ func removeWorktree(cmd *cobra.Command, root, path string, preserveActiveAgent, 
 			return errors.New("worktree has commits missing from origin; push your work or use --force to bypass the remote check")
 		}
 	}
+	if coreMode() {
+		if err := coreClose(cmd, root, path, preserveActiveAgent); err != nil {
+			return err
+		}
+		if err := runGit(cmd, root, "worktree", "remove", path); err != nil {
+			return fmt.Errorf("remove worktree: %w", err)
+		}
+		return nil
+	}
 	workspaceID, err := herdrWorkspaceForWorktree(cmd, root, path)
 	if err != nil {
 		return err
