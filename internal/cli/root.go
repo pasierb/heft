@@ -18,8 +18,9 @@ func New(version string) *cobra.Command {
 
 Run heft configure in a Git repository inside Herdr, then use heft work for each task.
 Commands can run from any worktree or its subdirectories.
-Herdr TUI uses herdr; standalone app terminals use hc only.
-Core mode uses automatic display names and app-controlled focus.
+Herdr TUI uses herdr; standalone app terminals use herdr-app when available,
+with hc for terminal operations. Without herdr-app, core mode uses automatic
+display names and app-controlled focus.
 Configuration is stored in .heft.yaml at the primary checkout root;
 worktree-local configuration is ignored.`,
 		Example: `  heft configure
