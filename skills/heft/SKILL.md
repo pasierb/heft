@@ -37,10 +37,14 @@ Use `heft` instead of coordinating Git worktrees and Herdr workspaces separately
 
 Heft also supports Herdr core terminals with `hc` on PATH. It detects
 `HC_TERMINAL_ID` and validates it with `hc get`; this takes precedence over
-TUI detection. No `herdr-app` CLI is required. Existing configuration and
-profiles work with either integration.
+TUI detection. If `herdr-app` is on PATH, Heft uses the running local app to
+create a named space and each configured tab explicitly, selecting the agent
+tab (or shell tab). App failures are reported without retrying through core.
+The app's creation commands change focus; `--no-focus` prints a limitation
+notice. Without `herdr-app`, including on remote machines, Heft uses core only.
+Existing configuration and profiles work with either integration.
 
-Core terminals receive space/tab labels for adoption by the app. Display names
+Without `herdr-app`, core terminals receive space/tab labels for adoption by the app. Display names
 are automatic and focus is app-controlled: `--label`, `workspace_prefix`, and
 configured tab names are stored as metadata, and `--no-focus` cannot guarantee
 focus behavior. Core mode prints a notice about these limits.
